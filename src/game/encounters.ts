@@ -1,9 +1,9 @@
+import type { Save } from "../services/save";
 import { spawnEnemies } from "./enemies";
 import { nearStation, buildStations } from "./villagers";
 import { quests, accept, claim, credit, type Journal } from "../systems/quests";
 import { trade } from "../systems/inventory";
 import {
-  freshBook,
   spellError,
   preview,
   castError,
@@ -13,7 +13,6 @@ import {
 import { showMagic } from "./magicEffect";
 import { items, type Slot } from "../data/items";
 import {
-  freshInventory,
   equip,
   gearStats,
   grant,
@@ -32,7 +31,6 @@ import {
   balance,
   damage,
   levelFor,
-  newHero,
   type Attribute,
 } from "../systems/character";
 export function encounters(
@@ -40,19 +38,20 @@ export function encounters(
   terrain: ReturnType<typeof buildTerrain>,
   body: Mesh,
   notify: (state: CombatView) => void,
+  initial: Save,
 ) {
-  const journal: Journal = {};
-  let gathered = false,
-    explored = false;
+  const journal = initial.journal;
+  let gathered = initial.gathered,
+    explored = initial.explored;
   buildStations(terrain);
-  const hero = newHero();
-  const book = freshBook();
+  const hero = initial.hero;
+  const book = initial.book;
   const cooldowns = new Map<string, number>();
   let shield = 0,
     shieldUntil = 0,
     enchantment = 0,
     enchantUntil = 0;
-  const bag = freshInventory();
+  const bag = initial.bag;
   const weapon = terrain.box(
     "Held weapon",
     0.52,
@@ -493,6 +492,17 @@ export function encounters(
     }
   });
   return {
+    snapshot: (): Save =>
+      structuredClone({
+        ...initial,
+        hero,
+        bag,
+        book,
+        journal,
+        gathered,
+        explored,
+        location: [body.position.x, body.position.z],
+      }),
     quest: (id: string) => {
       if (
         nearStation(body.position)?.id !== "warden" ||

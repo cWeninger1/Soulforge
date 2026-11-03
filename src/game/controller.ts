@@ -1,3 +1,4 @@
+import type { Save } from "../services/save";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder";
@@ -11,14 +12,16 @@ export function createTraveler(
   terrain: ReturnType<typeof buildTerrain>,
   canMove: () => boolean,
   onZone: (zone: string) => void,
+  initial: Save,
 ) {
   const body = CreateBox("Traveler collider", { size: 1 }, scene);
   body.isVisible = false;
   body.ellipsoid.set(0.38, 0.95, 0.38);
   body.ellipsoidOffset.set(0, 0.95, 0);
-  body.position.set(0, 0.03, -26);
+  body.position.set(initial.location[0], 0.03, initial.location[1]);
   const model = new TransformNode("Traveler", scene);
   model.parent = body;
+  model.scaling.x = initial.profile.body === "Broad" ? 1.1 : 0.86;
   const part = (
     name: string,
     x: number,
@@ -35,8 +38,30 @@ export function createTraveler(
   };
   part("Tunic", 0, 1.14, 0, 0.65, 0.73, 0.44, "#315665");
   part("Belt", 0, 0.85, 0, 0.68, 0.13, 0.46, "#69442d");
-  part("Head", 0, 1.77, 0, 0.45, 0.47, 0.42, "#c58c64");
-  part("Hair", 0, 1.99, -0.03, 0.47, 0.15, 0.44, "#483128");
+  part(
+    "Head",
+    0,
+    1.77,
+    0,
+    0.45,
+    0.47,
+    0.42,
+    { Amber: "#c58c64", Umber: "#845941", Rose: "#dcad91" }[
+      initial.profile.skin
+    ],
+  );
+  part(
+    "Hair",
+    0,
+    1.99,
+    -0.03,
+    0.47,
+    initial.profile.hair === "Long" ? 0.37 : 0.15,
+    0.44,
+    { Chestnut: "#483128", Silver: "#bbbeb8", Black: "#252629" }[
+      initial.profile.color
+    ],
+  );
   const legs = [-1, 1].map((side) =>
     part("Boot", side * 0.17, 0.43, 0, 0.26, 0.79, 0.29, "#473e39"),
   );

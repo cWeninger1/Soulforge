@@ -1,3 +1,4 @@
+import { freshSave, type Save } from "../services/save";
 import { encounters, type CombatView } from "./encounters";
 import { buildTerrain } from "./terrain";
 import { createTraveler } from "./controller";
@@ -12,6 +13,7 @@ export function startWorld(
   onCombat: (v: CombatView) => void,
   onReady: () => void,
   onZone: (zone: string) => void,
+  initial: Save = freshSave(),
 ) {
   const engine = new Engine(canvas, true);
   const scene = new Scene(engine);
@@ -42,8 +44,15 @@ export function startWorld(
     terrain,
     () => combat.alive(),
     onZone,
+    initial,
   );
-  const combat = encounters(scene, terrain, traveler.body, onCombat);
+  const combat = encounters(
+    scene,
+    terrain,
+    traveler.body,
+    onCombat,
+    structuredClone(initial),
+  );
   scene.onAfterRenderObservable.addOnce(onReady);
   const resize = () => engine.resize();
   window.addEventListener("resize", resize);

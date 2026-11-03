@@ -1,3 +1,4 @@
+import type { Save } from "../services/save";
 import { Journal } from "../components/Journal";
 import { Spellforge } from "../components/Spellforge";
 import { InventoryPanel } from "../components/InventoryPanel";
@@ -6,12 +7,46 @@ import { attributeNames, balance } from "../systems/character";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { startWorld } from "./world";
-export default function Valley() {
+export default function Valley({
+  initial,
+  onSave,
+  onExit,
+}: {
+  initial?: Save;
+  onSave?: (s: Save) => Promise<void>;
+  onExit?: (s: Save) => void;
+} = {}) {
+  const [saveStatus, setSaveStatus] = useState("");
+  const [leaving, setLeaving] = useState(false);
+  const saver = useRef(onSave);
+  saver.current = onSave;
+  async function checkpoint(exit = false) {
+    const snapshot = world.current?.combat.snapshot();
+    if (!snapshot || !saver.current) return;
+    if (exit) setLeaving(true);
+    try {
+      await saver.current(snapshot);
+      setSaveStatus("Character saved");
+      if (exit) onExit?.(snapshot);
+    } catch (e) {
+      setSaveStatus(String(e));
+    } finally {
+      if (exit) setLeaving(false);
+    }
+  }
   const canvas = useRef<HTMLCanvasElement>(null);
   const [ready, setReady] = useState(false);
   const [zone, setZone] = useState("Emberfall Village");
   const world = useRef<ReturnType<typeof startWorld> | null>(null);
   const [hud, setHud] = useState<CombatView>();
+  const progression = hud
+    ? JSON.stringify([hud.bag, hud.book, hud.attributes, hud.xp, hud.journal])
+    : null;
+  useEffect(() => {
+    if (!saver.current || !progression) return;
+    const t = window.setTimeout(() => void checkpoint(), 400);
+    return () => window.clearTimeout(t);
+  }, [progression]);
   const [sheet, setSheet] = useState(false);
   const [journal, setJournal] = useState(false);
   const [talk, setTalk] = useState(false);
@@ -26,8 +61,14 @@ export default function Valley() {
         canvas.current?.focus();
       },
       setZone,
+      initial,
     );
     world.current = active;
+    const timer = saver.current
+      ? window.setInterval(() => {
+          void checkpoint();
+        }, 10000)
+      : undefined;
     const key = (e: KeyboardEvent) => {
       if (/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName))
         return;
@@ -47,24 +88,37 @@ export default function Valley() {
     window.addEventListener("keydown", key);
     return () => {
       window.removeEventListener("keydown", key);
+      window.clearInterval(timer);
       world.current = null;
       active.dispose();
     };
-  }, []);
+  }, [initial]);
   return (
     <section>
       <canvas ref={canvas} aria-label="Emberfall Valley world" tabIndex={0} />
       <header>
         <small>{zone}</small>
         <h2>Emberfall Valley</h2>
-        <Link to="/">Return to camp</Link>
+        {onSave ? (
+          <>
+            <button disabled={leaving} onClick={() => void checkpoint(true)}>
+              Save and return to camp
+            </button>
+            <button onClick={() => void checkpoint()}>Save now</button>
+            <p role="status">{saveStatus}</p>
+          </>
+        ) : (
+          <Link to="/">Return to camp</Link>
+        )}
       </header>
       <div className="controls">
         WASD · Move Shift · Sprint Space · Jump Drag · Orbit Wheel · Zoom
       </div>
       {hud && (
         <aside className="hud">
-          <small>TRAVELER · LEVEL {hud.level}</small>
+          <small>
+            {initial?.profile.name ?? "TRAVELER"} · LEVEL {hud.level}
+          </small>
           {(["health", "mana", "stamina"] as const).map((key) => (
             <label key={key}>
               {key} {hud[key]}/{hud.max[key]}

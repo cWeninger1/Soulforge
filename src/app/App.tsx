@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Link, Routes, Route } from "react-router-dom";
 import { firebase } from "../services/firebase";
+const Account = lazy(() => import("../components/Account"));
 const Valley = lazy(() => import("../game/Valley"));
 class Boundary extends Component<{ children: ReactNode }, { failed: boolean }> {
   state = { failed: false };
@@ -28,7 +29,12 @@ export function Menu() {
       <Link className="button" to="/valley">
         Enter Emberfall Valley
       </Link>
-      <footer>{firebase.message}</footer>
+      {firebase.auth && (
+        <Link className="button" to="/account">
+          Account &amp; saved characters
+        </Link>
+      )}
+      <footer>{firebase.message} · Valley preview is session-only</footer>
     </main>
   );
 }
@@ -41,6 +47,7 @@ export function App() {
         >
           <Routes>
             <Route path="/" element={<Menu />} />
+            <Route path="/account" element={<Account />} />
             <Route path="/valley" element={<Valley />} />
             <Route
               path="*"
