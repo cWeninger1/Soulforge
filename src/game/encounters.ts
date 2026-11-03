@@ -1,3 +1,7 @@
+import { spawnEnemies } from "./enemies";
+import { nearStation, buildStations } from "./villagers";
+import { quests, accept, claim, credit, type Journal } from "../systems/quests";
+import { trade } from "../systems/inventory";
 import {
   freshBook,
   spellError,
@@ -37,6 +41,10 @@ export function encounters(
   body: Mesh,
   notify: (state: CombatView) => void,
 ) {
+  const journal: Journal = {};
+  let gathered = false,
+    explored = false;
+  buildStations(terrain);
   const hero = newHero();
   const book = freshBook();
   const cooldowns = new Map<string, number>();
@@ -93,69 +101,7 @@ export function encounters(
     });
     message = "Attribute points refunded.";
   }
-  const enemies = [
-    [-2, -9],
-    [3, 1],
-    [-1, 10],
-  ].map(([x, z], index) => {
-    const wolf = terrain.box(
-      "Forest Wolf",
-      x,
-      0.67,
-      z,
-      0.78,
-      0.75,
-      1.5,
-      "#79746b",
-    );
-    wolf.ellipsoid.set(0.4, 0.5, 0.7);
-    const head = terrain.box(
-      "Wolf head",
-      0,
-      0.34,
-      0.69,
-      0.56,
-      0.55,
-      0.59,
-      "#9b9281",
-    );
-    head.parent = wolf;
-    for (const side of [-1, 1]) {
-      const ear = terrain.box(
-        "Pointed ear",
-        side * 0.18,
-        0.68,
-        0.61,
-        0.16,
-        0.28,
-        0.19,
-        "#48473f",
-      );
-      ear.parent = wolf;
-      for (const end of [-1, 1]) {
-        const leg = terrain.box(
-          "Paw",
-          side * 0.28,
-          -0.42,
-          end * 0.45,
-          0.16,
-          0.52,
-          0.21,
-          "#4d4941",
-        );
-        leg.parent = wolf;
-      }
-    }
-    return {
-      wolf,
-      home: wolf.position.clone(),
-      hp: 36,
-      timer: 0,
-      phase: "Patrol",
-      index,
-      attack: 1,
-    };
-  });
+  const enemies = spawnEnemies(terrain);
   let target = -1,
     auto = false,
     nextHit = 0,
@@ -172,6 +118,7 @@ export function encounters(
     if (!e.hp) return;
     e.hp = Math.max(0, e.hp - hit);
     if (!e.hp) {
+      credit(journal, e.name);
       e.wolf.setEnabled(false);
       e.phase = "Dead";
       e.timer = clock + 20;
@@ -182,7 +129,8 @@ export function encounters(
       target = -1;
       auto = false;
       message =
-        "Forest Wolf defeated · +24 XP · +3 gold · " +
+        e.name +
+        " defeated · +24 XP · +3 gold · " +
         (received ? items[drop].name : "pack full");
     }
   }
@@ -192,7 +140,8 @@ export function encounters(
       ? list[(list.findIndex((e) => e.index === target) + 1) % list.length]
           .index
       : -1;
-    message = target < 0 ? "No enemies nearby." : "Forest Wolf targeted.";
+    message =
+      target < 0 ? "No enemies nearby." : enemies[target].name + " targeted.";
     auto = false;
   }
   function sight(wolf: Mesh) {
@@ -364,6 +313,23 @@ export function encounters(
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
     clock += dt;
+    if (!explored && body.position.z > 20) {
+      explored = true;
+      hero.xp += 15;
+      message = "Forgotten Ruins discovered · +15 XP";
+    }
+    for (const e of enemies) {
+      if (
+        e.windup &&
+        clock >= e.windup &&
+        Vector3.Distance(body.position, e.wolf.position) > e.range
+      ) {
+        e.windup = 0;
+        e.attack = clock + 3;
+        e.wolf.scaling.y = 3;
+        message = "Shockwave evaded.";
+      }
+    }
     for (let i = burns.length - 1; i >= 0; i--) {
       const b = burns[i];
       if (!b.enemy.hp) {
@@ -383,7 +349,7 @@ export function encounters(
       const distance = Vector3.Distance(body.position, pos);
       if (e.hp <= 0) {
         if (clock >= e.timer) {
-          e.hp = 36;
+          e.hp = e.max;
           pos.copyFrom(e.home);
           e.wolf.setEnabled(true);
           e.phase = "Patrol";
@@ -395,12 +361,16 @@ export function encounters(
       if (leash > 12 || hero.health <= 0) e.phase = "Return";
       if (
         e.phase !== "Return" &&
-        distance < 6 &&
+        distance < Math.max(6, e.range + 1) &&
         hero.health > 0 &&
         sight(e.wolf)
       ) {
         e.phase =
-          distance < 1.9 ? "Attack" : e.phase === "Patrol" ? "Alert" : "Chase";
+          distance < e.range
+            ? "Attack"
+            : e.phase === "Patrol"
+              ? "Alert"
+              : "Chase";
         threatened = true;
       } else if (
         e.phase === "Chase" ||
@@ -409,12 +379,40 @@ export function encounters(
       )
         e.phase = "Return";
       if (e.phase === "Attack" && clock >= e.attack) {
-        const incoming = damage(8, stats.defense, false);
+        if (e.name === "Ruins Guardian" && !e.windup) {
+          e.windup = clock + 1.5;
+          e.attack = e.windup;
+          message = "Guardian raises its fists · leave the shockwave radius!";
+          e.wolf.scaling.y = 3.6;
+          continue;
+        }
+        const slam = e.windup > 0;
+        e.windup = 0;
+        if (slam) e.wolf.scaling.y = 3;
+        if (e.name === "Corrupted Wisp")
+          showMagic(
+            scene,
+            {
+              id: "wisp",
+              name: "Wisp bolt",
+              version: 1,
+              element: "Arcane",
+              form: "Projectile",
+              modifier: "None",
+            },
+            pos,
+            body.position,
+          );
+        const incoming = damage(
+          e.power * (slam ? 2 : 1),
+          e.name === "Corrupted Wisp" ? stats.resistance : stats.defense,
+          false,
+        );
         const absorbed = clock < shieldUntil ? Math.min(incoming, shield) : 0;
         shield -= absorbed;
         hero.health = Math.max(0, hero.health - incoming + absorbed);
         e.attack = clock + 1.8;
-        message = hero.health ? "Forest Wolf bites." : "You fell in Emberfall.";
+        message = hero.health ? e.name + " hits." : "You fell in Emberfall.";
       } else if (e.phase !== "Attack") {
         const destination =
           e.phase === "Chase" || e.phase === "Alert"
@@ -464,6 +462,10 @@ export function encounters(
         mana: Math.ceil(hero.mana),
         stamina: Math.ceil(hero.stamina),
         max: resources(),
+        journal: structuredClone(journal),
+        station: nearStation(body.position),
+        targetName: enemies[target]?.name,
+        targetMax: enemies[target]?.max,
         book: structuredClone(book),
         remaining: book.slots.map((id) =>
           Math.max(0, Math.ceil((cooldowns.get(id ?? "") ?? 0) - clock)),
@@ -491,6 +493,32 @@ export function encounters(
     }
   });
   return {
+    quest: (id: string) => {
+      if (
+        nearStation(body.position)?.id !== "warden" ||
+        !quests.some((q) => q.id === id)
+      )
+        return;
+      if (!journal[id]) accept(journal, id);
+      else
+        message = claim(journal, id, hero, bag, book)
+          ? "Quest reward received."
+          : "Check objectives and pack space.";
+    },
+    shop: (kind: "buy" | "sell", id: string) => {
+      if (nearStation(body.position)?.id === "merchant")
+        message = trade(bag, kind, id)
+          ? "Trade complete."
+          : "Cannot trade · check gold, equipment and pack space.";
+    },
+    gather: () => {
+      if (nearStation(body.position)?.id === "herbs" && !gathered) {
+        hero.mana = resources().mana;
+        gathered = true;
+        hero.xp += 5;
+        message = "Silverleaf collected · mana restored.";
+      }
+    },
     saveSpell,
     removeSpell,
     slotSpell,
@@ -511,6 +539,10 @@ export function encounters(
   };
 }
 export type CombatView = {
+  journal: Journal;
+  station: ReturnType<typeof nearStation>;
+  targetName?: string;
+  targetMax?: number;
   book: Spellbook;
   remaining: number[];
   status: string;

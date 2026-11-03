@@ -63,6 +63,8 @@ export function spellError(
     return "Recover Chain from the ruins guardian.";
   if (d.form === "Enchantment" && !armed)
     return "Equip a weapon for an enchantment.";
+  if (d.modifier === "Empowered" && !book.unlocks.includes("Empowered"))
+    return "Recover essence for Warden Aster.";
   const p = preview(d, 0);
   if (a.Intelligence < p.intelligence || a.Willpower < p.willpower)
     return "Attribute requirement not met.";

@@ -1,3 +1,4 @@
+import { Journal } from "../components/Journal";
 import { Spellforge } from "../components/Spellforge";
 import { InventoryPanel } from "../components/InventoryPanel";
 import type { CombatView } from "./encounters";
@@ -12,6 +13,8 @@ export default function Valley() {
   const world = useRef<ReturnType<typeof startWorld> | null>(null);
   const [hud, setHud] = useState<CombatView>();
   const [sheet, setSheet] = useState(false);
+  const [journal, setJournal] = useState(false);
+  const [talk, setTalk] = useState(false);
   const [forge, setForge] = useState(false);
   const [pack, setPack] = useState(false);
   useEffect(() => {
@@ -28,11 +31,15 @@ export default function Valley() {
     const key = (e: KeyboardEvent) => {
       if (/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName))
         return;
+      if (e.code === "KeyJ" && !e.repeat) setJournal((v) => !v);
+      if (e.code === "KeyE" && !e.repeat) setTalk((v) => !v);
       if (e.code === "KeyK" && !e.repeat) setForge((v) => !v);
       if (e.code === "KeyC" && !e.repeat) setSheet((s) => !s);
       if (e.code === "KeyI" && !e.repeat) setPack((v) => !v);
       if (e.key === "Escape") {
         setSheet(false);
+        setJournal(false);
+        setTalk(false);
         setPack(false);
         setForge(false);
       }
@@ -73,8 +80,8 @@ export default function Valley() {
           </label>
           {hud.target !== null && (
             <label>
-              Forest Wolf · {hud.target}/36
-              <progress value={hud.target} max={36} />
+              {hud.targetName} · {hud.target}/{hud.targetMax}
+              <progress value={hud.target} max={hud.targetMax} />
             </label>
           )}
           <p>{hud.message}</p>
@@ -112,6 +119,31 @@ export default function Valley() {
               </button>
             ))}
           </div>
+          <button onClick={() => setJournal(!journal)}>Journal (J)</button>
+          {hud.station && (
+            <button
+              onClick={() => {
+                if (hud.station?.id === "forge") setForge(!forge);
+                else if (hud.station?.id === "herbs")
+                  world.current?.combat.gather();
+                else setTalk(!talk);
+              }}
+            >
+              {hud.station.name} · Interact
+            </button>
+          )}
+          {world.current &&
+            (journal ||
+              (talk &&
+                hud.station &&
+                (hud.station.id === "warden" ||
+                  hud.station.id === "merchant"))) && (
+              <Journal
+                hud={hud}
+                actions={world.current.combat}
+                dialog={!!(talk && hud.station)}
+              />
+            )}
           {hud.health === 0 && (
             <button onClick={() => world.current?.combat.respawn()}>
               Respawn in village
