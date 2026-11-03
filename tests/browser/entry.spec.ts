@@ -16,6 +16,13 @@ test("enter a rendered valley and return to camp", async ({ page }) => {
   });
   await page.keyboard.up("w");
   await page.keyboard.up("Shift");
+  await page.getByRole("button", { name: "Attack (F)" }).click();
+  await expect(
+    page.getByText("Forest Wolf defeated", { exact: false }),
+  ).toBeVisible({ timeout: 20000 });
+  await page.getByRole("button", { name: "Character (C)" }).click();
+  await page.getByRole("button", { name: "Increase Strength" }).click();
+  await expect(page.getByText("4 points available")).toBeVisible();
   await page.getByRole("link", { name: "Return to camp" }).click();
   await expect(page.getByRole("heading", { name: "Soulforge" })).toBeVisible();
   expect(errors).toEqual([]);

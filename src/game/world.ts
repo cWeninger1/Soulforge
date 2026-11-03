@@ -1,3 +1,4 @@
+import { encounters, type CombatView } from "./encounters";
 import { buildTerrain } from "./terrain";
 import { createTraveler } from "./controller";
 import { Engine } from "@babylonjs/core/Engines/engine";
@@ -8,6 +9,7 @@ import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
 export function startWorld(
   canvas: HTMLCanvasElement,
+  onCombat: (v: CombatView) => void,
   onReady: () => void,
   onZone: (zone: string) => void,
 ) {
@@ -34,15 +36,26 @@ export function startWorld(
   camera.panningSensibility = 0;
   camera.wheelPrecision = 40;
   const terrain = buildTerrain(scene);
-  const release = createTraveler(scene, camera, terrain, onZone);
+  const traveler = createTraveler(
+    scene,
+    camera,
+    terrain,
+    () => combat.alive(),
+    onZone,
+  );
+  const combat = encounters(scene, terrain, traveler.body, onCombat);
   scene.onAfterRenderObservable.addOnce(onReady);
   const resize = () => engine.resize();
   window.addEventListener("resize", resize);
   engine.runRenderLoop(() => scene.render());
-  return () => {
-    window.removeEventListener("resize", resize);
-    release();
-    scene.dispose();
-    engine.dispose();
+  return {
+    combat,
+    dispose: () => {
+      window.removeEventListener("resize", resize);
+      combat.dispose();
+      traveler.dispose();
+      scene.dispose();
+      engine.dispose();
+    },
   };
 }

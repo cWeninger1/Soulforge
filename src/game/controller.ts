@@ -9,6 +9,7 @@ export function createTraveler(
   scene: Scene,
   camera: ArcRotateCamera,
   terrain: ReturnType<typeof buildTerrain>,
+  canMove: () => boolean,
   onZone: (zone: string) => void,
 ) {
   const body = CreateBox("Traveler collider", { size: 1 }, scene);
@@ -80,6 +81,10 @@ export function createTraveler(
   camera.radius = 8;
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
+    if (!canMove()) {
+      clear();
+      return;
+    }
     const forward = Number(keys.has("KeyW")) - Number(keys.has("KeyS"));
     const right = Number(keys.has("KeyD")) - Number(keys.has("KeyA"));
     const angle = camera.alpha;
@@ -124,9 +129,12 @@ export function createTraveler(
       onZone(zone);
     }
   });
-  return () => {
-    window.removeEventListener("keydown", down);
-    window.removeEventListener("keyup", up);
-    window.removeEventListener("blur", clear);
+  return {
+    body,
+    dispose: () => {
+      window.removeEventListener("keydown", down);
+      window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", clear);
+    },
   };
 }

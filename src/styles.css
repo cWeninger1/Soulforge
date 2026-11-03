@@ -93,3 +93,25 @@ aside {
   max-width: 95vw;
   width: max-content;
 }
+.hud {
+  width: min(300px, 32vw);
+  font: 14px system-ui;
+  max-height: 85vh;
+  overflow: auto;
+}
+.hud label {
+  display: block;
+  margin: 0.4em 0;
+  text-transform: capitalize;
+}
+.hud progress {
+  display: block;
+  width: 100%;
+  accent-color: #d8ac62;
+}
+.hud button {
+  padding: 0.4rem 0.55rem;
+}
+.hud p {
+  font-size: 0.9em;
+}
