@@ -1,3 +1,4 @@
+import { Spellforge } from "../components/Spellforge";
 import { InventoryPanel } from "../components/InventoryPanel";
 import type { CombatView } from "./encounters";
 import { attributeNames, balance } from "../systems/character";
@@ -11,6 +12,7 @@ export default function Valley() {
   const world = useRef<ReturnType<typeof startWorld> | null>(null);
   const [hud, setHud] = useState<CombatView>();
   const [sheet, setSheet] = useState(false);
+  const [forge, setForge] = useState(false);
   const [pack, setPack] = useState(false);
   useEffect(() => {
     const active = startWorld(
@@ -24,11 +26,15 @@ export default function Valley() {
     );
     world.current = active;
     const key = (e: KeyboardEvent) => {
+      if (/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName))
+        return;
+      if (e.code === "KeyK" && !e.repeat) setForge((v) => !v);
       if (e.code === "KeyC" && !e.repeat) setSheet((s) => !s);
       if (e.code === "KeyI" && !e.repeat) setPack((v) => !v);
       if (e.key === "Escape") {
         setSheet(false);
         setPack(false);
+        setForge(false);
       }
     };
     window.addEventListener("keydown", key);
@@ -88,6 +94,24 @@ export default function Valley() {
               sort={() => world.current?.combat.sort()}
             />
           )}
+          <button onClick={() => setForge(!forge)}>Spellforge (K)</button>
+          {forge && world.current && (
+            <Spellforge hud={hud} actions={world.current.combat} />
+          )}
+          <p>{hud.status}</p>
+          <div aria-label="Action bar">
+            {hud.book.slots.map((id, i) => (
+              <button
+                key={i}
+                disabled={!id || hud.remaining[i] > 0}
+                onClick={() => world.current?.combat.cast(i)}
+              >
+                {i + 1} ·{" "}
+                {hud.book.designs.find((d) => d.id === id)?.name ?? "—"}{" "}
+                {hud.remaining[i] > 0 ? hud.remaining[i] + "s" : ""}
+              </button>
+            ))}
+          </div>
           {hud.health === 0 && (
             <button onClick={() => world.current?.combat.respawn()}>
               Respawn in village

@@ -133,3 +133,17 @@ aside {
 .hud button:disabled {
   opacity: 0.65;
 }
+.forge {
+  border-block: 1px solid #997a4e;
+  padding: 0.8rem 0;
+  margin: 1rem 0;
+}
+.forge input,
+.forge select {
+  display: block;
+  width: 100%;
+  background: #26372c;
+  color: #fff2ce;
+  padding: 0.4rem;
+  border: 1px solid #856d4c;
+}

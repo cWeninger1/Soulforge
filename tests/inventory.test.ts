@@ -34,4 +34,3 @@ test("capacity and funds are atomic and materials stack", () => {
   expect(trade(inv, "sell", "starter-staff")).toBe(true);
   expect(inv.gold).toBe(12);
 });
-

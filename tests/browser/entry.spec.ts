@@ -9,6 +9,13 @@ test("enter a rendered valley and return to camp", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("status")).toHaveCount(0);
   await expect(page.locator("canvas")).toBeVisible();
+  await page.getByRole("button", { name: "Spellforge (K)" }).click();
+  await page.getByLabel("Spell name").fill("Cinder Arrow");
+  await page.getByRole("button", { name: "Save spell" }).click();
+  await page
+    .getByLabel("Slot 1", { exact: true })
+    .selectOption({ label: "Cinder Arrow" });
+  await page.getByRole("button", { name: "Spellforge (K)" }).click();
   await page.keyboard.down("Shift");
   await page.keyboard.down("w");
   await expect(page.getByText("Whispering Woods")).toBeVisible({
@@ -16,6 +23,11 @@ test("enter a rendered valley and return to camp", async ({ page }) => {
   });
   await page.keyboard.up("w");
   await page.keyboard.up("Shift");
+  await page.getByRole("button", { name: "Target", exact: true }).click();
+  await page.getByRole("button", { name: "1 · Cinder Arrow" }).click();
+  await expect(
+    page.getByText("Cast Cinder Arrow", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Attack (F)" }).click();
   await expect(
     page.getByText("Forest Wolf defeated", { exact: false }),

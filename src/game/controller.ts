@@ -50,6 +50,8 @@ export function createTraveler(
   let stride = 0;
   let lastZone = "";
   const down = (e: KeyboardEvent) => {
+    if (/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName))
+      return;
     if (
       ![
         "KeyW",

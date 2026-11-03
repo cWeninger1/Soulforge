@@ -1,3 +1,12 @@
+import {
+  freshBook,
+  spellError,
+  preview,
+  castError,
+  type Design,
+  type Spellbook,
+} from "../systems/spells";
+import { showMagic } from "./magicEffect";
 import { items, type Slot } from "../data/items";
 import {
   freshInventory,
@@ -29,6 +38,12 @@ export function encounters(
   notify: (state: CombatView) => void,
 ) {
   const hero = newHero();
+  const book = freshBook();
+  const cooldowns = new Map<string, number>();
+  let shield = 0,
+    shieldUntil = 0,
+    enchantment = 0,
+    enchantUntil = 0;
   const bag = freshInventory();
   const weapon = terrain.box(
     "Held weapon",
@@ -72,6 +87,10 @@ export function encounters(
     hero.attributes = initialAttributes();
     revalidateGear(bag, hero.attributes);
     updateWeapon();
+    book.slots = book.slots.map((id) => {
+      const d = book.designs.find((s) => s.id === id);
+      return d && !eligibility(d) ? id : null;
+    });
     message = "Attribute points refunded.";
   }
   const enemies = [
@@ -148,6 +167,25 @@ export function encounters(
     enemies.filter(
       (e) => e.hp > 0 && Vector3.Distance(body.position, e.wolf.position) < 16,
     );
+  type Enemy = (typeof enemies)[number];
+  function strike(e: Enemy, hit: number) {
+    if (!e.hp) return;
+    e.hp = Math.max(0, e.hp - hit);
+    if (!e.hp) {
+      e.wolf.setEnabled(false);
+      e.phase = "Dead";
+      e.timer = clock + 20;
+      hero.xp += 24;
+      bag.gold += 3;
+      const drop = wolfLoot(Math.random());
+      const received = grant(bag, drop);
+      target = -1;
+      auto = false;
+      message =
+        "Forest Wolf defeated · +24 XP · +3 gold · " +
+        (received ? items[drop].name : "pack full");
+    }
+  }
   function select() {
     const list = alive();
     target = list.length
@@ -192,8 +230,130 @@ export function encounters(
     const stats = gearStats(bag, hero.attributes);
     return { health: stats.health, mana: stats.mana, stamina: stats.stamina };
   }
+  function eligibility(d: Design) {
+    return spellError(
+      d,
+      book,
+      hero.attributes,
+      gearStats(bag, hero.attributes).complexity,
+      !!weaponFamily,
+    );
+  }
+  function saveSpell(d: Design) {
+    const error = eligibility(d);
+    if (error) {
+      message = error;
+      return;
+    }
+    const design = {
+      ...d,
+      name: d.name.trim(),
+      id: d.id || crypto.randomUUID(),
+    };
+    const index = book.designs.findIndex((v) => v.id === design.id);
+    if (index >= 0) book.designs[index] = design;
+    else book.designs.push(design);
+    message = "Inscribed " + design.name;
+  }
+  function removeSpell(id: string) {
+    book.designs = book.designs.filter((v) => v.id !== id);
+    book.slots = book.slots.map((v) => (v === id ? null : v));
+  }
+  function slotSpell(index: number, id: string | null) {
+    if (index < 0 || index >= 6) return;
+    const d = book.designs.find((v) => v.id === id);
+    if (id && (!d || eligibility(d))) return;
+    book.slots[index] = id;
+  }
+  const burns: {
+    enemy: Enemy;
+    remaining: number;
+    next: number;
+    amount: number;
+  }[] = [];
+  function cast(slot: number) {
+    const d = book.designs.find((v) => v.id === book.slots[slot]);
+    if (!d || hero.health <= 0) return;
+    const stats = gearStats(bag, hero.attributes);
+    const p = preview(d, stats.magic);
+    const error =
+      eligibility(d) ||
+      castError(hero.mana, p.mana, (cooldowns.get(d.id) ?? 0) - clock);
+    if (error) {
+      message = error;
+      return;
+    }
+    const at = body.position.add(new Vector3(0, 1, 0));
+    let to = at;
+    let victims: Enemy[] = [];
+    const heal = d.element === "Nature" && d.form === "Projectile";
+    if (d.form === "Projectile" && !heal) {
+      const e = enemies[target];
+      if (!e?.hp) {
+        message = "Select a living target.";
+        return;
+      }
+      if (Vector3.Distance(at, e.wolf.position) > p.range) {
+        message = "Target out of range.";
+        return;
+      }
+      if (!sight(e.wolf)) {
+        message = "Line of sight blocked.";
+        return;
+      }
+      to = e.wolf.position;
+      victims = [e];
+      if (d.modifier === "Chain")
+        victims.push(
+          ...enemies
+            .filter(
+              (other) =>
+                other !== e &&
+                other.hp > 0 &&
+                Vector3.Distance(to, other.wolf.position) < 5 &&
+                sight(other.wolf),
+            )
+            .slice(0, 2),
+        );
+    }
+    if (d.form === "Nova")
+      victims = enemies.filter(
+        (e) =>
+          e.hp > 0 &&
+          Vector3.Distance(at, e.wolf.position) <= p.range &&
+          sight(e.wolf),
+      );
+    hero.mana -= p.mana;
+    cooldowns.set(d.id, clock + p.cooldown);
+    message = "Cast " + d.name;
+    if (heal) hero.health = Math.min(stats.health, hero.health + p.power);
+    if (d.form === "Barrier") {
+      shield = p.power;
+      shieldUntil = clock + p.duration;
+    }
+    if (d.form === "Enchantment") {
+      enchantment = Math.ceil(p.power * 0.4);
+      enchantUntil = clock + p.duration;
+    }
+    for (const e of victims) {
+      strike(e, p.power);
+      if (d.modifier === "Lingering" && e.hp)
+        burns.push({
+          enemy: e,
+          remaining: 3,
+          next: clock + 1,
+          amount: Math.ceil(p.power * 0.2),
+        });
+    }
+    showMagic(scene, d, at, to);
+  }
   const onKey = (e: KeyboardEvent) => {
-    if (e.repeat) return;
+    if (
+      e.repeat ||
+      /INPUT|SELECT|TEXTAREA/.test((e.target as HTMLElement)?.tagName)
+    )
+      return;
+    if (/^Digit[1-6]$/.test(e.code)) cast(Number(e.code.slice(-1)) - 1);
     if (e.code === "Tab" && document.activeElement?.tagName === "CANVAS") {
       e.preventDefault();
       select();
@@ -204,6 +364,18 @@ export function encounters(
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
     clock += dt;
+    for (let i = burns.length - 1; i >= 0; i--) {
+      const b = burns[i];
+      if (!b.enemy.hp) {
+        burns.splice(i, 1);
+        continue;
+      }
+      if (clock >= b.next) {
+        strike(b.enemy, b.amount);
+        b.next = clock + 1;
+        if (--b.remaining === 0) burns.splice(i, 1);
+      }
+    }
     const stats = gearStats(bag, hero.attributes);
     let threatened = false;
     for (const e of enemies) {
@@ -237,10 +409,10 @@ export function encounters(
       )
         e.phase = "Return";
       if (e.phase === "Attack" && clock >= e.attack) {
-        hero.health = Math.max(
-          0,
-          hero.health - damage(8, stats.defense, false),
-        );
+        const incoming = damage(8, stats.defense, false);
+        const absorbed = clock < shieldUntil ? Math.min(incoming, shield) : 0;
+        shield -= absorbed;
+        hero.health = Math.max(0, hero.health - incoming + absorbed);
         e.attack = clock + 1.8;
         message = hero.health ? "Forest Wolf bites." : "You fell in Emberfall.";
       } else if (e.phase !== "Attack") {
@@ -268,24 +440,11 @@ export function encounters(
         else if (!sight(e.wolf)) message = "Line of sight blocked.";
         else if (hero.stamina >= balance.meleeCost) {
           const hit = damage(stats.physical, 4, Math.random() < stats.crit);
-          e.hp = Math.max(0, e.hp - hit);
+
           hero.stamina -= balance.meleeCost;
           nextHit = clock + 1 / stats.attackSpeed;
           message = "Sword strike · " + hit;
-          if (!e.hp) {
-            e.wolf.setEnabled(false);
-            e.phase = "Dead";
-            e.timer = clock + 20;
-            hero.xp += 24;
-            bag.gold += 3;
-            const drop = wolfLoot(Math.random());
-            const received = grant(bag, drop);
-            target = -1;
-            auto = false;
-            message =
-              "Forest Wolf defeated · +24 XP · +3 gold · " +
-              (received ? items[drop].name : "pack full");
-          }
+          strike(e, hit + (clock < enchantUntil ? enchantment : 0));
         }
       }
     }
@@ -305,6 +464,16 @@ export function encounters(
         mana: Math.ceil(hero.mana),
         stamina: Math.ceil(hero.stamina),
         max: resources(),
+        book: structuredClone(book),
+        remaining: book.slots.map((id) =>
+          Math.max(0, Math.ceil((cooldowns.get(id ?? "") ?? 0) - clock)),
+        ),
+        status: [
+          clock < shieldUntil && shield > 0 ? "Barrier " + shield : "",
+          clock < enchantUntil ? "Weapon enchanted" : "",
+        ]
+          .filter(Boolean)
+          .join(" · "),
         bag: structuredClone(bag),
         stats,
         xp: hero.xp,
@@ -322,6 +491,10 @@ export function encounters(
     }
   });
   return {
+    saveSpell,
+    removeSpell,
+    slotSpell,
+    cast,
     equipItem,
     unequip,
     respec,
@@ -338,6 +511,9 @@ export function encounters(
   };
 }
 export type CombatView = {
+  book: Spellbook;
+  remaining: number[];
+  status: string;
   bag: Inventory;
   stats: ReturnType<typeof gearStats>;
   health: number;
