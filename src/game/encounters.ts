@@ -1,3 +1,14 @@
+import { items, type Slot } from "../data/items";
+import {
+  freshInventory,
+  equip,
+  gearStats,
+  grant,
+  wolfLoot,
+  revalidateGear,
+  type Inventory,
+} from "../systems/inventory";
+import { initialAttributes } from "../systems/character";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Ray } from "@babylonjs/core/Culling/ray";
 import type { Scene } from "@babylonjs/core/scene";
@@ -7,7 +18,6 @@ import {
   availablePoints,
   balance,
   damage,
-  derive,
   levelFor,
   newHero,
   type Attribute,
@@ -19,6 +29,51 @@ export function encounters(
   notify: (state: CombatView) => void,
 ) {
   const hero = newHero();
+  const bag = freshInventory();
+  const weapon = terrain.box(
+    "Held weapon",
+    0.52,
+    1.1,
+    0.38,
+    0.1,
+    0.13,
+    0.9,
+    "#d2d6c4",
+  );
+  weapon.parent = scene.getTransformNodeByName("Traveler");
+  let weaponFamily = "";
+  function updateWeapon() {
+    const held = bag.entries.find((e) => e.id === bag.equipment["Main Hand"]);
+    weaponFamily = held ? items[held.item].family : "";
+    weapon.setEnabled(!!held);
+    weapon.scaling.set(
+      weaponFamily === "Greatsword" ? 2 : 1,
+      weaponFamily === "Staff" ? 9 : 1,
+      weaponFamily === "Dagger" ? 0.5 : weaponFamily === "Staff" ? 0.15 : 1,
+    );
+    weapon.material = terrain.paint(
+      weaponFamily === "Staff" || weaponFamily === "Bow"
+        ? "#785341"
+        : "#cbd8cc",
+    );
+  }
+  updateWeapon();
+  function equipItem(id: string) {
+    message = equip(bag, id, hero.attributes)
+      ? "Equipment changed."
+      : "Requirements not met.";
+    updateWeapon();
+  }
+  function unequip(slot: Slot) {
+    delete bag.equipment[slot];
+    updateWeapon();
+  }
+  function respec() {
+    hero.attributes = initialAttributes();
+    revalidateGear(bag, hero.attributes);
+    updateWeapon();
+    message = "Attribute points refunded.";
+  }
   const enemies = [
     [-2, -9],
     [3, 1],
@@ -134,7 +189,7 @@ export function encounters(
     message = "You awaken by the village fires.";
   }
   function resources() {
-    const stats = derive(hero.attributes);
+    const stats = gearStats(bag, hero.attributes);
     return { health: stats.health, mana: stats.mana, stamina: stats.stamina };
   }
   const onKey = (e: KeyboardEvent) => {
@@ -149,7 +204,7 @@ export function encounters(
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
     clock += dt;
-    const stats = derive(hero.attributes);
+    const stats = gearStats(bag, hero.attributes);
     let threatened = false;
     for (const e of enemies) {
       const pos = e.wolf.position;
@@ -208,7 +263,8 @@ export function encounters(
         }
       }
       if (target === e.index && auto && hero.health > 0 && clock >= nextHit) {
-        if (distance > balance.meleeRange) message = "Move closer to attack.";
+        if (distance > (weaponFamily === "Bow" ? 12 : balance.meleeRange))
+          message = "Move closer to attack.";
         else if (!sight(e.wolf)) message = "Line of sight blocked.";
         else if (hero.stamina >= balance.meleeCost) {
           const hit = damage(stats.physical, 4, Math.random() < stats.crit);
@@ -221,9 +277,14 @@ export function encounters(
             e.phase = "Dead";
             e.timer = clock + 20;
             hero.xp += 24;
+            bag.gold += 3;
+            const drop = wolfLoot(Math.random());
+            const received = grant(bag, drop);
             target = -1;
             auto = false;
-            message = "Forest Wolf defeated · +24 XP";
+            message =
+              "Forest Wolf defeated · +24 XP · +3 gold · " +
+              (received ? items[drop].name : "pack full");
           }
         }
       }
@@ -244,6 +305,8 @@ export function encounters(
         mana: Math.ceil(hero.mana),
         stamina: Math.ceil(hero.stamina),
         max: resources(),
+        bag: structuredClone(bag),
+        stats,
         xp: hero.xp,
         level: levelFor(hero.xp),
         points: availablePoints(hero.attributes, hero.xp),
@@ -259,6 +322,13 @@ export function encounters(
     }
   });
   return {
+    equipItem,
+    unequip,
+    respec,
+    sort: () =>
+      bag.entries.sort((a, b) =>
+        items[a.item].name.localeCompare(items[b.item].name),
+      ),
     select,
     engage,
     respawn,
@@ -268,6 +338,8 @@ export function encounters(
   };
 }
 export type CombatView = {
+  bag: Inventory;
+  stats: ReturnType<typeof gearStats>;
   health: number;
   mana: number;
   stamina: number;

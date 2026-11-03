@@ -1,3 +1,4 @@
+import { InventoryPanel } from "../components/InventoryPanel";
 import type { CombatView } from "./encounters";
 import { attributeNames, balance } from "../systems/character";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +11,7 @@ export default function Valley() {
   const world = useRef<ReturnType<typeof startWorld> | null>(null);
   const [hud, setHud] = useState<CombatView>();
   const [sheet, setSheet] = useState(false);
+  const [pack, setPack] = useState(false);
   useEffect(() => {
     const active = startWorld(
       canvas.current!,
@@ -23,7 +25,11 @@ export default function Valley() {
     world.current = active;
     const key = (e: KeyboardEvent) => {
       if (e.code === "KeyC" && !e.repeat) setSheet((s) => !s);
-      if (e.key === "Escape") setSheet(false);
+      if (e.code === "KeyI" && !e.repeat) setPack((v) => !v);
+      if (e.key === "Escape") {
+        setSheet(false);
+        setPack(false);
+      }
     };
     window.addEventListener("keydown", key);
     return () => {
@@ -73,6 +79,15 @@ export default function Valley() {
             Attack (F)
           </button>{" "}
           <button onClick={() => setSheet(!sheet)}>Character (C)</button>
+          <button onClick={() => setPack(!pack)}>Inventory (I)</button>
+          {pack && (
+            <InventoryPanel
+              bag={hud.bag}
+              equip={(id) => world.current?.combat.equipItem(id)}
+              remove={(slot) => world.current?.combat.unequip(slot)}
+              sort={() => world.current?.combat.sort()}
+            />
+          )}
           {hud.health === 0 && (
             <button onClick={() => world.current?.combat.respawn()}>
               Respawn in village
@@ -81,6 +96,17 @@ export default function Valley() {
           {sheet && (
             <div>
               <h3>Character sheet</h3>
+              <button onClick={() => world.current?.combat.respec()}>
+                Refund attributes
+              </button>
+              <details>
+                <summary>Derived statistics</summary>
+                {Object.entries(hud.stats).map(([k, v]) => (
+                  <div key={k}>
+                    {k} · {v.toFixed(2)}
+                  </div>
+                ))}
+              </details>
               <p>{hud.points} points available</p>
               {attributeNames.map((key) => (
                 <label key={key}>

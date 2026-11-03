@@ -115,3 +115,21 @@ aside {
 .hud p {
   font-size: 0.9em;
 }
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3px;
+  margin: 0.5rem 0;
+}
+.grid > * {
+  min-height: 2.3rem;
+  font-size: 0.7rem;
+}
+.empty {
+  background: #27372c;
+  border: 1px solid #53624c;
+  text-align: center;
+}
+.hud button:disabled {
+  opacity: 0.65;
+}
