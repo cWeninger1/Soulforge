@@ -1,0 +1,82 @@
+:root {
+  font:
+    16px/1.5 Georgia,
+    serif;
+  color: #fff2cf;
+  background: #142721;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+main {
+  min-height: 100vh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  text-align: center;
+  padding: 2rem;
+  background:
+    radial-gradient(ellipse at 60% 85%, #75503566, transparent 45%),
+    radial-gradient(at 35% 20%, #354e43, #102521 68%);
+}
+small {
+  color: #f0ce83;
+  letter-spacing: 0.28em;
+  font: 600 0.7rem system-ui;
+}
+h1 {
+  font-size: clamp(4rem, 12vw, 10rem);
+  font-weight: 400;
+  letter-spacing: -0.06em;
+  margin: 0;
+  line-height: 1.2;
+}
+p {
+  color: #e5dbc1;
+}
+a {
+  color: #ffdf9b;
+}
+.button,
+button {
+  background: #62472b;
+  color: #fff1cd;
+  border: 1px solid #c39d57;
+  padding: 0.8rem 1.4rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+.button {
+  margin: 1rem;
+}
+footer {
+  margin-top: 3rem;
+  font: 12px system-ui;
+  color: #d0d4be;
+}
+section > canvas {
+  width: 100vw;
+  height: 100dvh;
+  display: block;
+  touch-action: none;
+}
+header,
+aside {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  padding: 14px 22px;
+  background: #142721ed;
+  border-left: 3px solid #d3af6b;
+}
+h2 {
+  margin: 0.1em 0;
+  font-weight: normal;
+}
+aside {
+  left: auto;
+  right: 18px;
+}
