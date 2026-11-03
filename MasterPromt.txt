@@ -1,0 +1,1732 @@
+# SOULFORGE — MASTER DEVELOPMENT PROMPT FOR CODEX
+
+## ROLE AND OBJECTIVE
+
+You are the lead software engineer, game systems architect, technical game designer, and implementation agent for a new browser-based 3D fantasy RPG called **Soulforge**.
+
+Your responsibility is to design, implement, test, document, and prepare Soulforge for deployment as a complete, playable web game.
+
+This is an actual game development project, not a static website, mockup, documentation-only exercise, or proof of concept.
+
+**Primary objective:** Build a functional, polished, classless, third-person fantasy RPG featuring character progression, equipment, exploration, real-time combat, quests, loot, and a unique custom spell creation system.
+
+Players must be able to create an account, create a character, enter a 3D fantasy world, fight enemies, earn experience, collect and equip items, assign attribute points, invent their own spells, complete quests, save their progress, and continue playing in future sessions.
+
+The initial release will be a single-player experience using Firebase for user authentication, character persistence, and web hosting.
+
+Design the architecture so multiplayer features can be added in the future without requiring a complete rewrite, but do not implement multiplayer networking in the initial release.
+
+---
+
+# 1. CONFIRMED TECHNOLOGY STACK
+
+Use the following technologies:
+
+### Frontend
+- React
+- TypeScript
+- Vite
+- HTML/CSS for game menus, HUD, inventory, and interface elements
+- Responsive layouts supporting standard desktop resolutions
+
+### 3D Game Engine
+- Babylon.js
+- Babylon.js scene management
+- Babylon.js animation system
+- Babylon.js collision detection
+- Babylon.js particles and visual effects
+- Babylon.js asset loading
+- Babylon.js lighting, shadows, and materials
+
+### Backend / Infrastructure
+- Firebase Authentication
+- Cloud Firestore
+- Firebase Hosting
+- Firebase Security Rules
+- Firebase Emulator Suite for development and testing
+
+Firebase Cloud Functions may be introduced when necessary for server-validated operations. Do not require Cloud Functions merely to make the initial single-player game functional.
+
+Use the latest compatible stable package versions available in the development environment, and record installed versions in the package manifest and lockfile.
+
+### Development Tools
+- ESLint
+- Prettier
+- Vitest
+- React Testing Library
+- Playwright for essential browser tests
+
+Use npm unless the existing repository already establishes a different package manager.
+
+### Architectural Requirements
+
+Separate the application into distinct modules:
+
+1. Babylon.js rendering and scene management
+2. Character movement and controls
+3. Combat and targeting
+4. Character attributes and progression
+5. Inventory and equipment
+6. Spell creation and spell execution
+7. Enemy AI
+8. Quests and world interaction
+9. React UI
+10. Firebase authentication and persistence
+
+Game rules must not be tightly coupled to React components or Babylon.js meshes.
+
+Damage calculation, stat requirements, spell validation, inventory management, and progression should be implemented as independently testable TypeScript systems.
+
+---
+
+# 2. GAME IDENTITY
+
+Game title: **Soulforge**
+
+Genre: Classless fantasy action RPG
+
+Platform: Desktop web browsers
+
+Camera: Third-person perspective
+
+Gameplay: Real-time combat, exploration, questing, looting, leveling, equipment management, and custom spellcrafting.
+
+Visual inspiration: World of Warcraft Classic.
+
+Soulforge must use an original fantasy world, original characters, original interface design, original names, and appropriately licensed or original artwork.
+
+Do not copy copyrighted assets, characters, locations, interface artwork, music, textures, maps, or other protected content from World of Warcraft.
+
+### Visual Direction
+
+The world should feature:
+
+- Stylized, colorful 3D environments
+- Exaggerated fantasy architecture
+- Hand-painted-looking textures
+- Readable, expressive character silhouettes
+- Stylized fantasy armor and weapons
+- Bright magical particle effects
+- Atmospheric forests and ruins
+- Warm village lighting
+- Daytime outdoor environments
+- A cohesive early-2000s fantasy MMORPG aesthetic
+
+Avoid photorealistic rendering.
+
+Prioritize visual consistency, readable combat, and good performance over high polygon counts.
+
+Target approximately 60 FPS on a capable modern desktop, with graphics settings that allow lower-end devices to reduce expensive effects.
+
+---
+
+# 3. CORE GAME DESIGN PHILOSOPHY
+
+Soulforge is completely classless.
+
+Players do not select Warrior, Mage, Rogue, Paladin, or any other predefined class.
+
+Instead, character identity emerges from three interconnected systems:
+
+**Attributes determine character strengths.**
+
+**Equipment determines available combat capabilities and provides specialized bonuses.**
+
+**Custom spellcrafting determines magical abilities.**
+
+A character should be capable of combining traditional RPG archetypes.
+
+Examples include:
+
+- Heavy-armored fire battlemage
+- Dual-dagger poison specialist
+- Bow-wielding arcane ranger
+- Defensive shield mage
+- Two-handed warrior with healing magic
+- Lightning-focused melee fighter
+- Spellcaster wearing medium armor
+- Self-healing frontline fighter
+
+These are potential player-created builds, not selectable classes.
+
+Build experimentation is a central part of the game.
+
+---
+
+# 4. HYBRID ATTRIBUTE REQUIREMENT SYSTEM
+
+Soulforge uses a hybrid system.
+
+Basic weapons, armor, and introductory magic are accessible to all characters.
+
+Advanced equipment and spell components require specific attribute investments.
+
+Players should never be completely prevented from using basic magic or physical combat simply because they favor another style.
+
+### Primary Attributes
+
+Implement six primary attributes.
+
+**Strength**
+- Increases physical melee damage
+- Supports heavy weapons
+- Unlocks advanced strength-based equipment
+
+**Dexterity**
+- Influences attack speed
+- Improves ranged weapon effectiveness
+- Contributes to critical strike chance
+- Supports agile equipment
+
+**Intelligence**
+- Increases magical damage
+- Contributes to available spell complexity
+- Unlocks advanced magical components
+
+**Vitality**
+- Increases maximum health
+- Improves health regeneration
+
+**Endurance**
+- Increases maximum stamina
+- Improves physical defense
+- Supports heavy armor effectiveness
+
+**Willpower**
+- Increases maximum mana
+- Improves mana regeneration
+- Contributes to magical stability or control
+
+### Starting Attributes
+
+For the initial implementation:
+
+- Every character begins with 5 points in each attribute.
+- Characters receive 5 additional points to allocate during creation.
+- Each level awards 3 attribute points.
+
+Keep these values configurable in one centralized balance configuration.
+
+### Derived Statistics
+
+Calculate derived stats from attributes and equipment.
+
+At minimum:
+
+- Maximum health
+- Maximum mana
+- Maximum stamina
+- Physical damage
+- Magical damage
+- Physical defense
+- Magic resistance
+- Critical chance
+- Attack speed
+- Movement speed
+- Spell complexity capacity
+- Mana regeneration
+- Health regeneration
+
+Use deterministic formulas with documented values.
+
+Prevent invalid states such as negative health, non-finite damage, and attribute totals exceeding earned points.
+
+### Level Progression
+
+Initial maximum level: 10.
+
+Experience is earned through:
+
+- Defeating enemies
+- Completing quests
+- Defeating bosses
+- Discovering designated exploration locations
+
+Create an experience progression curve with increasing requirements.
+
+All level thresholds must be configurable.
+
+Provide an initial attribute respec system so players can experiment with different builds.
+
+Respeccing must unequip incompatible advanced equipment and disable or unequip spells that no longer meet requirements, without deleting owned items or spell designs.
+
+---
+
+# 5. CHARACTER CREATION
+
+When a player signs in for the first time, display character creation.
+
+Initial options:
+
+- Character name
+- Body preset
+- Skin appearance preset
+- Hair preset
+- Hair color
+- Starting attribute allocation
+
+Avoid adding playable races or classes in the first release.
+
+The first release may provide a limited selection of character customization options, but the character creator must be functional rather than purely decorative.
+
+### Character Selection
+
+Initially support one character per account.
+
+Structure persistence so additional character slots can be added later.
+
+### Character Model
+
+The character must be a visible 3D humanoid with:
+
+- Idle animation
+- Walking animation
+- Running animation
+- Jumping animation
+- Basic melee attack animation
+- Casting animation
+- Taking damage animation
+- Death animation
+
+Use appropriate openly licensed or original models and animations.
+
+Record the source, author, and license for external assets.
+
+Do not assume that arbitrary downloaded assets can be redistributed commercially.
+
+If some visual assets are not immediately available, use temporary placeholders while retaining working gameplay.
+
+---
+
+# 6. THIRD-PERSON MOVEMENT AND CAMERA
+
+Implement movement inspired by classic third-person MMORPGs.
+
+### Controls
+
+- W: Move forward
+- S: Move backward
+- A: Move left
+- D: Move right
+- Mouse: Rotate camera
+- Space: Jump
+- Shift: Optional sprint
+- Tab: Cycle between nearby valid enemies
+- 1–6: Activate action bar abilities
+- I: Inventory
+- C: Character sheet
+- K: Spellforge
+- J: Quest journal
+- Escape: Main menu or close interface
+
+### Camera Requirements
+
+- Third-person follow camera
+- Smooth camera movement
+- Adjustable distance
+- Mouse-controlled rotation
+- Collision handling to reduce camera clipping
+- Optional mouse sensitivity setting
+
+Movement should feel smooth, predictable, and responsive.
+
+Do not make character movement dependent on React rerender frequency.
+
+Use Babylon.js update loops and delta-time-based movement.
+
+### Collision and Navigation
+
+The character must interact correctly with:
+
+- Terrain
+- Buildings
+- Trees
+- Rocks
+- Enemies
+- World boundaries
+
+Prevent walking through solid geometry and unintended terrain penetration.
+
+Make collision handling sufficiently stable for a small browser RPG.
+
+---
+
+# 7. INITIAL GAME WORLD
+
+Build one polished, connected starter area rather than an oversized empty map.
+
+### Zone: Emberfall Valley
+
+Create an original fantasy starter region called Emberfall Valley.
+
+The region includes:
+
+**Emberfall Village**
+- Starting location
+- Several fantasy buildings
+- Quest NPCs
+- A merchant
+- A spellcrafting station
+- A small village square
+
+**Whispering Woods**
+- Forest exploration region
+- Basic hostile creatures
+- Collectible materials
+- An introductory quest objective
+
+**Forgotten Ruins**
+- Stone ruins and magical structures
+- Stronger enemies
+- An elite enemy or boss encounter
+- A special spell component reward
+
+These should be distinct areas within one manageable Babylon.js scene or world-loading structure.
+
+### Environmental Requirements
+
+Implement:
+
+- Terrain
+- Trees
+- Rocks
+- Grass or low-cost vegetation
+- Paths
+- Buildings
+- Decorative props
+- Ambient lighting
+- Directional sunlight
+- Shadows where performance permits
+- Basic ambient sound hooks
+
+### World Interaction
+
+Players should interact with objects and NPCs using a consistent interaction system.
+
+Interactions must support:
+
+- Talking to NPCs
+- Opening merchant interfaces
+- Activating the Spellforge
+- Collecting items
+- Accepting quests
+- Completing quests
+
+Do not implement a massive open world in the initial release.
+
+---
+
+# 8. REAL-TIME COMBAT SYSTEM
+
+Combat must be functional, not simulated solely through interface text.
+
+### Combat Features
+
+- Enemy targeting
+- Target health bars
+- Melee auto-attacks
+- Spellcasting
+- Damage calculation
+- Mana costs
+- Stamina costs where applicable
+- Cooldowns
+- Attack range
+- Line-of-sight checks
+- Enemy death
+- Loot generation
+- Experience rewards
+
+### Basic Combat Behavior
+
+Players can select an enemy and perform physical attacks or cast custom spells.
+
+Melee attacks must respect weapon range and attack timing.
+
+Spells must respect their configured targeting, range, cooldown, resource costs, and effects.
+
+### Combat Feedback
+
+Implement:
+
+- Floating damage numbers
+- Health bar changes
+- Hit reactions
+- Spell particles
+- Damage-type visuals
+- Target indicators
+- Death animations or equivalent visual feedback
+- Error messages for invalid casts
+
+Examples of invalid casts:
+
+- Not enough mana
+- Target out of range
+- Spell on cooldown
+- Invalid target
+- Line of sight blocked
+- Attribute requirements not met
+
+### Damage System
+
+Define damage types:
+
+- Physical
+- Fire
+- Frost
+- Arcane
+- Nature
+
+Create deterministic damage and resistance calculations with reasonable clamps.
+
+Do not implement complex elemental reactions until the basic damage system is stable.
+
+Avoid allowing damage, critical chance, damage reduction, or attack speed to grow without practical limits.
+
+---
+
+# 9. SPELLFORGE — CUSTOM SPELL CREATION
+
+This is Soulforge's signature feature and one of the highest priorities.
+
+Players do not simply learn fixed spells from a conventional skill tree.
+
+Instead, they create spells by combining unlocked magical components.
+
+The Spellforge must exist as a functional React interface and a corresponding gameplay system.
+
+### Spell Components
+
+A spell is assembled from three main component categories.
+
+## A. Element
+
+Initial elements:
+
+**Fire**
+- Direct magical damage
+- Optional burning effects
+
+**Frost**
+- Magical damage
+- Optional slowing effects
+
+**Arcane**
+- Pure magical damage
+- Magical shielding or utility
+
+**Nature**
+- Damage or healing depending on spell form
+- Regeneration and defensive possibilities
+
+## B. Spell Form
+
+Initial forms:
+
+**Projectile**
+- Casts magic toward a target
+- Supports single-target damage or healing when valid
+
+**Nova**
+- Releases magic around the caster
+- Supports area effects
+
+**Weapon Enchantment**
+- Temporarily applies magic to an equipped weapon
+- Supports magical damage bonuses or special on-hit effects
+
+**Barrier**
+- Creates a protective magical effect
+- Supports shields and temporary defensive bonuses
+
+## C. Modifier
+
+Initial modifiers:
+
+**None**
+- No additional modifier
+
+**Chain**
+- Allows eligible effects to jump between targets
+
+**Lingering**
+- Adds duration or damage-over-time behavior
+
+**Empowered**
+- Increases effect power at an additional resource cost
+
+### Spell Creation Workflow
+
+The player opens the Spellforge menu.
+
+The interface must allow players to:
+
+1. Select an unlocked element.
+2. Select a compatible spell form.
+3. Select a compatible modifier.
+4. Preview the generated spell.
+5. View required attributes.
+6. View complexity cost.
+7. View mana cost.
+8. View cooldown.
+9. View estimated damage or other effects.
+10. Name the spell.
+11. Save the spell.
+12. Assign it to an action bar slot.
+
+The system must create actual usable gameplay abilities.
+
+### Spell Data Structure
+
+Design a typed serializable structure conceptually similar to:
+
+```typescript
+interface CreatedSpell {
+  id: string;
+  name: string;
+  elementId: string;
+  formId: string;
+  modifierId: string | null;
+  complexityCost: number;
+  manaCost: number;
+  cooldownSeconds: number;
+  requirements: Partial<CharacterAttributes>;
+  version: number;
+}
+```
+
+Extend the model as required for game mechanics.
+
+Do not store executable functions or arbitrary player-generated code in spell records.
+
+Spell execution must use trusted, predefined component behavior.
+
+### Spell Complexity
+
+Every spell component has a complexity cost.
+
+Calculate total complexity using its elements, form, and modifier.
+
+A character can only equip spells that fit within their current spell complexity capacity.
+
+Intelligence should increase complexity capacity.
+
+Advanced components may also require minimum Intelligence or Willpower.
+
+Keep spell eligibility and component compatibility as separate validation rules.
+
+### Spell Validation
+
+Not every combination should automatically be valid.
+
+Examples:
+
+- Chain may only work on suitable targeting forms.
+- Lingering may modify eligible damage, regeneration, or defensive effects.
+- Weapon enchantments require compatible equipment.
+- Healing effects must correctly distinguish allies, self, and enemies.
+- Barrier effects must grant defensive benefits instead of incorrectly producing damage.
+
+Implement a compatibility system and provide clear feedback when a combination is invalid.
+
+### Spell Balance
+
+Mana cost, damage, healing, duration, and cooldown must be calculated from configurable component values.
+
+Avoid arbitrary hardcoded values scattered throughout UI components.
+
+Spell designs must be revalidated on load and execution.
+
+Players must not be able to edit Firestore documents to create spells with impossible damage, zero cooldowns, or unauthorized components.
+
+### Spell Visual Effects
+
+Use distinct particle effects and visual colors for each element.
+
+The spell form should determine how the effect appears in the 3D world.
+
+Examples:
+
+- Projectile: traveling magical effect
+- Nova: expanding radial effect
+- Weapon enchantment: glow or particle effects attached to a weapon
+- Barrier: visible magical shield around the character
+
+Use reusable effect systems rather than hardcoding separate implementations for every spell combination.
+
+### Saved Spells
+
+Players must be able to:
+
+- Save custom spells
+- Rename spells
+- Delete spells
+- Edit an existing spell
+- Equip spells
+- Unequip spells
+- Assign spells to action bar slots
+
+Initially support up to six equipped spells.
+
+Store created spell configurations in Firebase.
+
+---
+
+# 10. EQUIPMENT SYSTEM
+
+Equipment must directly influence combat builds.
+
+### Equipment Slots
+
+Implement:
+
+- Head
+- Chest
+- Hands
+- Legs
+- Feet
+- Main Hand
+- Off Hand
+- Necklace
+- Ring 1
+- Ring 2
+
+### Equipment Types
+
+Initial weapon categories:
+
+- One-handed sword
+- Two-handed sword
+- Dagger
+- Staff
+- Bow
+
+Initial armor categories:
+
+- Cloth
+- Leather
+- Plate
+
+Allow weapons and armor to have individual stat requirements.
+
+### Hybrid Equipment Rules
+
+Any character can equip basic equipment.
+
+Advanced items require certain attributes.
+
+Examples:
+
+- Heavy greatsword: minimum Strength
+- Reinforced plate chest: minimum Strength and Endurance
+- Advanced magical staff: minimum Intelligence
+- Specialized bow: minimum Dexterity
+
+Requirements should be enforced consistently during equipment changes, stat reallocations, and data loading.
+
+### Item Properties
+
+Equipment may provide:
+
+- Physical damage
+- Magical damage
+- Armor
+- Resistance
+- Primary attribute bonuses
+- Attack speed
+- Critical chance
+- Spell complexity bonuses
+- Elemental bonuses
+- Unique effects
+
+### Initial Item Rarities
+
+- Common
+- Uncommon
+- Rare
+- Epic
+
+Create original item definitions with balanced progression.
+
+For the MVP, implement approximately 20 meaningful equipment items rather than hundreds of generic items.
+
+### Visual Equipment
+
+Prioritize visibly equipped weapons and a few recognizable armor variations.
+
+At a minimum, changing the equipped weapon must update the 3D character representation.
+
+Do not delay working inventory and equipment systems solely because a full modular armor system is unavailable.
+
+---
+
+# 11. INVENTORY, LOOT, AND ECONOMY
+
+Implement a grid-based inventory.
+
+Initial inventory capacity: 24 slots.
+
+### Inventory Features
+
+- Item icons
+- Item tooltips
+- Item quantities
+- Stackable materials
+- Equip and unequip
+- Item sorting
+- Item selling
+- Gold currency
+- Inventory capacity checks
+
+### Loot
+
+Enemies can drop:
+
+- Gold
+- Common equipment
+- Uncommon equipment
+- Crafting materials
+- Spell components
+- Rare rewards from elites or bosses
+
+Implement configurable loot tables with weighted probabilities.
+
+### Merchants
+
+Create one village merchant.
+
+The merchant must support:
+
+- Viewing available items
+- Buying items
+- Selling items
+- Gold balance updates
+- Insufficient funds validation
+
+Player inventory and currency changes must remain consistent.
+
+---
+
+# 12. ENEMY AI
+
+Implement three basic enemy types and one elite boss.
+
+### Initial Enemies
+
+**Forest Wolf**
+- Melee attacks
+- Fast movement
+- Short aggro range
+
+**Goblin Raider**
+- Melee attacks
+- Moderate health
+- Pursues nearby players
+
+**Corrupted Wisp**
+- Ranged magical attacks
+- Lower physical defense
+- Uses magical projectiles
+
+**Ruins Guardian**
+- Elite boss
+- Increased health
+- Several distinct combat behaviors
+- Area attack warning
+- Special loot
+
+### Enemy Behavior
+
+Implement an AI state machine:
+
+1. Idle
+2. Patrol
+3. Alert
+4. Chase
+5. Attack
+6. Return
+7. Dead
+
+Enemies must respect:
+
+- Aggro range
+- Attack range
+- Attack cooldown
+- Leash distance
+- Health
+- Death state
+- Respawn behavior
+
+Enemy pathfinding should work reliably in the small starter zone.
+
+Keep enemy AI independent from React components.
+
+---
+
+# 13. QUEST SYSTEM
+
+Implement a small functional quest system.
+
+### Initial Quests
+
+**Quest 1: Trouble in the Woods**
+- Defeat forest wolves.
+- Return to the quest giver.
+- Receive experience and gold.
+
+**Quest 2: Missing Supplies**
+- Recover supplies from goblins.
+- Return the supplies.
+- Receive equipment.
+
+**Quest 3: Corrupted Magic**
+- Defeat corrupted wisps.
+- Collect magical essence.
+- Unlock a spell component.
+
+**Quest 4: The Forgotten Guardian**
+- Explore the ruins.
+- Defeat the Ruins Guardian.
+- Receive a rare reward.
+
+### Quest Features
+
+- Accept quests
+- Track quest objectives
+- Update progress
+- Display active quests
+- Complete quests
+- Claim rewards
+- Persist completed quests
+
+Quest completion must be idempotent: a completed quest cannot grant rewards repeatedly.
+
+Include basic NPC dialogue panels.
+
+---
+
+# 14. REACT GAME INTERFACE
+
+React controls the user interface.
+
+Babylon.js controls 3D rendering and world presentation.
+
+### Main HUD
+
+Display:
+
+- Player health
+- Player mana
+- Player stamina
+- Player level
+- Experience bar
+- Target name and health
+- Action bar
+- Active status effects
+- Interaction prompts
+
+### Inventory
+
+Create an RPG inventory screen with:
+
+- Item slots
+- Icons
+- Tooltips
+- Equipment comparison
+- Equip actions
+- Gold balance
+
+### Character Sheet
+
+Display:
+
+- Character name
+- Level
+- Experience
+- Six attributes
+- Derived stats
+- Unspent attribute points
+- Equipped items
+- Respec option
+
+### Spellforge Interface
+
+Create a dedicated spell-building interface featuring:
+
+- Available elements
+- Spell forms
+- Modifiers
+- Spell preview
+- Resource cost calculations
+- Compatibility feedback
+- Saved spell collection
+- Equip controls
+
+This should be one of the most visually distinctive menus in the game.
+
+### Other Interfaces
+
+Implement:
+
+- Login and registration
+- Character creation
+- Character selection/loading
+- Quest journal
+- Merchant interface
+- NPC dialogue
+- Pause/settings menu
+- Death and respawn interface
+- Loading screen
+
+### UI Visual Style
+
+Use a cohesive fantasy UI with:
+
+- Dark stone and leather-inspired panels
+- Gold and bronze accents
+- Distinct item rarity colors
+- Readable typography
+- Magical icons
+- Subtle animations
+- Clearly visible cooldowns
+
+Preserve accessibility and legibility.
+
+The interface should resemble a polished fantasy RPG, not a generic administrative dashboard.
+
+---
+
+# 15. FIREBASE ARCHITECTURE
+
+Firebase will be responsible for:
+
+- Account authentication
+- Character persistence
+- Inventory persistence
+- Equipment persistence
+- Attributes and progression
+- Saved custom spells
+- Quest progress
+- Player settings
+- Web hosting
+
+### Authentication
+
+Implement:
+
+- Email/password registration
+- Email/password login
+- Password reset
+- Logout
+- Persistent authenticated sessions
+- Account deletion
+
+Optionally support Google sign-in if it can be added without delaying the initial implementation.
+
+### Suggested Firestore Data Layout
+
+Use a structure similar to:
+
+```text
+users/{uid}
+    profile
+    settings
+
+users/{uid}/characters/{characterId}
+    name
+    level
+    experience
+    attributes
+    currentHealth
+    currentMana
+    currentStamina
+    gold
+    location
+    progressionVersion
+
+users/{uid}/characters/{characterId}/inventory/{itemInstanceId}
+
+users/{uid}/characters/{characterId}/equipment/{slotId}
+
+users/{uid}/characters/{characterId}/spells/{spellId}
+
+users/{uid}/characters/{characterId}/quests/{questId}
+
+users/{uid}/characters/{characterId}/unlocks/{unlockId}
+```
+
+Adjust this layout when justified by read patterns, security, document size, and atomic update requirements.
+
+### Static Game Data
+
+Store static item definitions, enemy definitions, quest definitions, spell components, and balance configurations in version-controlled TypeScript or JSON files.
+
+Do not duplicate large static game catalogs in every player's Firestore documents.
+
+### Persistence Rules
+
+Character progress should save at meaningful milestones:
+
+- Quest completion
+- Leveling up
+- Attribute changes
+- Equipment changes
+- Inventory transactions
+- Spell creation
+- Spell changes
+- Player logout
+- Periodic safe checkpoints
+
+Avoid writing to Firestore every frame or for every movement update.
+
+Use debounced or event-driven saving where appropriate.
+
+### Security
+
+Implement Firebase Security Rules.
+
+Players must not be able to access another player's private character data.
+
+Validate document ownership, field types, schema constraints, and allowed operations.
+
+Do not assume user ownership alone prevents cheating.
+
+Firestore Security Rules cannot reliably validate an entire complex RPG economy or arbitrary combat results on their own.
+
+For an initial single-player version, locally calculated combat, experience, gold, and loot may be saved as player-owned progress and should explicitly be considered **client-trusted and potentially modifiable**.
+
+Do not claim this model is cheat-proof.
+
+If competitive rankings, trading, shared economies, or multiplayer are introduced, move reward granting, inventory mutations, combat validation, and other sensitive operations to authoritative backend services.
+
+Use Firebase App Check where practical as an additional abuse-reduction measure, not a replacement for authorization.
+
+### Firebase Configuration
+
+Use environment variables for client Firebase configuration.
+
+Include:
+
+```text
+VITE_FIREBASE_API_KEY
+VITE_FIREBASE_AUTH_DOMAIN
+VITE_FIREBASE_PROJECT_ID
+VITE_FIREBASE_STORAGE_BUCKET
+VITE_FIREBASE_MESSAGING_SENDER_ID
+VITE_FIREBASE_APP_ID
+```
+
+Do not include private service account credentials in frontend code.
+
+Firebase client configuration is not a secret and must not be treated as an authorization mechanism.
+
+Provide `.env.example` and appropriate Git ignore rules.
+
+Do not invent production credentials or silently deploy to an unknown Firebase project.
+
+---
+
+# 16. SAVE SYSTEM AND DATA INTEGRITY
+
+Implement a central persistence service.
+
+Requirements:
+
+- Typed data access
+- Input validation
+- Save versioning
+- Loading states
+- Error handling
+- Retry support
+- Prevention of accidental save overwrites
+- Schema migration hooks
+- Sensible handling of disconnected sessions
+
+Provide local caching where useful, but define whether Firestore or local data is authoritative.
+
+Do not silently overwrite newer cloud progress with older offline progress.
+
+Inventory and currency transactions should be atomic where feasible.
+
+Prevent duplicate item IDs, invalid equipment references, duplicate rewards, and corrupted character states.
+
+Persist only necessary character and world progression information.
+
+Do not attempt to save every transient engine object or animation state.
+
+---
+
+# 17. GAME SYSTEM ARCHITECTURE
+
+Create a maintainable project structure similar to:
+
+```text
+src/
+  app/
+    App.tsx
+    routes/
+    providers/
+
+  game/
+    engine/
+    scenes/
+    camera/
+    controllers/
+    combat/
+    entities/
+    enemies/
+    effects/
+    interactions/
+    world/
+
+  systems/
+    attributes/
+    progression/
+    inventory/
+    equipment/
+    spells/
+    quests/
+    loot/
+    economy/
+
+  data/
+    items/
+    enemies/
+    quests/
+    spells/
+    balance/
+
+  components/
+    hud/
+    inventory/
+    character/
+    spellforge/
+    quests/
+    dialogs/
+    menus/
+
+  services/
+    firebase/
+    persistence/
+    authentication/
+
+  hooks/
+  types/
+  utils/
+  styles/
+
+public/
+  assets/
+    models/
+    animations/
+    textures/
+    icons/
+    audio/
+
+tests/
+```
+
+This is a starting structure, not a rigid requirement.
+
+### Additional Architecture Rules
+
+- Prefer composition over giant manager classes.
+- Keep game state and rendering synchronized.
+- Avoid unnecessary global mutable state.
+- Use React state management only for data the interface needs.
+- Do not rerender the React application on every game frame.
+- Use a clear game lifecycle.
+- Clean up Babylon.js observers, controls, scene resources, and listeners.
+- Avoid circular dependencies.
+- Use stable identifiers for items, spells, quests, characters, and enemies.
+- Centralize combat and progression constants.
+
+---
+
+# 18. PERFORMANCE REQUIREMENTS
+
+Soulforge must be practical to play inside a browser.
+
+Implement:
+
+- Efficient asset loading
+- Sensible texture sizes
+- Mesh instancing where beneficial
+- Limited active enemy AI updates
+- Particle effect pooling where helpful
+- Asset disposal and cleanup
+- Graphics quality settings
+- Loading progress indication
+
+Avoid loading unnecessarily large models or textures.
+
+Design the world so it can grow into multiple zones without forcing all assets to load simultaneously.
+
+### Browser Experience
+
+The game should:
+
+- Load into a clear main menu
+- Authenticate successfully
+- Load a saved character
+- Enter the world
+- Run consistently
+- Allow gameplay without constant UI interruptions
+- Save progress reliably
+
+A WebGL-capable desktop browser is the initial target.
+
+Mobile support is not required for the first release.
+
+---
+
+# 19. AUDIO SYSTEM
+
+Build a basic audio infrastructure for:
+
+- Ambient environment sounds
+- Melee attacks
+- Spellcasting
+- Enemy damage
+- Item pickup
+- UI interactions
+- Boss encounters
+
+Provide volume controls for:
+
+- Master
+- Music
+- Effects
+
+Handle browser audio autoplay restrictions properly.
+
+Use only assets with suitable licenses.
+
+If complete audio assets are unavailable, implement the functional audio system and document missing content.
+
+---
+
+# 20. DEVELOPMENT MILESTONES
+
+Complete the project incrementally.
+
+Every milestone must leave the application in a working state.
+
+## Milestone 1 — Project Foundation
+
+Implement:
+
+- Vite and React
+- TypeScript
+- Babylon.js initialization
+- Firebase initialization
+- Application routing
+- Error boundaries
+- Basic loading screen
+- Development scripts
+- Formatting and linting
+- Testing infrastructure
+
+Acceptance criteria:
+
+- Project installs
+- Development server starts
+- React UI renders
+- Babylon.js canvas renders
+- Firebase initialization handles missing configuration clearly
+- Build succeeds
+
+## Milestone 2 — Playable 3D World
+
+Implement:
+
+- Starter environment
+- Third-person character
+- Movement and jumping
+- Camera controls
+- Collision handling
+- Basic character animations
+- World boundaries
+
+Acceptance criteria:
+
+- Character can move throughout the starter environment
+- Camera works reliably
+- Character cannot walk through major solid objects
+- No major console errors
+
+## Milestone 3 — Character and Combat
+
+Implement:
+
+- Character attributes
+- Derived stats
+- Health, mana, stamina
+- Enemy targeting
+- Melee attacks
+- Damage system
+- Enemy AI
+- Enemy deaths
+- Experience and leveling
+
+Acceptance criteria:
+
+- Player can fight and defeat enemies
+- Enemies can attack the player
+- Health and resources update correctly
+- Leveling works
+- Character death and respawn work
+
+## Milestone 4 — Inventory and Equipment
+
+Implement:
+
+- Inventory
+- Equipment slots
+- Item data definitions
+- Loot generation
+- Attribute requirements
+- Equipment stat calculations
+- Character sheet
+- Gold
+
+Acceptance criteria:
+
+- Player can obtain items
+- Player can equip compatible gear
+- Stats respond to equipment
+- Invalid equipment is rejected
+- Inventory state remains consistent
+
+## Milestone 5 — Spellforge
+
+Implement:
+
+- Element selection
+- Spell form selection
+- Modifier selection
+- Compatibility validation
+- Spell complexity
+- Attribute requirements
+- Spell saving
+- Spell equipment
+- Spellcasting
+- Spell visual effects
+
+Acceptance criteria:
+
+- Player can create multiple distinct valid spells
+- Invalid combinations cannot be saved
+- Saved spells can be equipped
+- Equipped spells work in actual combat
+- Mana and cooldowns are enforced
+
+This is a critical milestone. Do not consider it complete if the Spellforge is merely a visual menu.
+
+## Milestone 6 — Quests and World Content
+
+Implement:
+
+- NPC interactions
+- Quest framework
+- Initial quests
+- Enemy loot
+- Merchant
+- Starter boss
+- Spell component rewards
+- World interactions
+
+Acceptance criteria:
+
+- All initial quests can be completed
+- Rewards are granted correctly
+- Boss encounter works
+- The world contains meaningful activities
+
+## Milestone 7 — Firebase Persistence
+
+Implement:
+
+- Authentication
+- Character creation
+- Character selection
+- Firestore persistence
+- Save/load
+- Security rules
+- Error handling
+- Data validation
+- Account deletion
+
+Acceptance criteria:
+
+- A player can register
+- Create a character
+- Play the game
+- Close the browser
+- Sign in again
+- Resume with saved progress
+
+This includes inventory, equipment, attributes, quests, spells, and progression.
+
+## Milestone 8 — Visual Polish and Release
+
+Implement:
+
+- Improved environment art
+- Improved character presentation
+- UI refinement
+- Combat feedback
+- Spell particles
+- Audio infrastructure
+- Graphics settings
+- Loading optimization
+- Bug fixes
+- Browser testing
+- Firebase Hosting configuration
+
+Acceptance criteria:
+
+- A full gameplay session is possible without blocking bugs.
+- Core systems work together.
+- No obvious placeholder menus remain where functionality is required.
+- Game builds successfully.
+- Firebase rules are tested.
+- Hosting deployment is ready.
+
+---
+
+# 21. TESTING REQUIREMENTS
+
+Write meaningful tests for the RPG systems.
+
+### Unit Tests
+
+Cover:
+
+- Attribute calculations
+- Experience progression
+- Damage calculations
+- Critical hits
+- Equipment requirements
+- Item bonuses
+- Spell combinations
+- Spell complexity
+- Mana costs
+- Cooldowns
+- Inventory capacity
+- Currency transactions
+- Quest completion
+- Save data validation
+
+### Integration Tests
+
+Cover:
+
+- Equipping and unequipping items
+- Attribute respec with equipment requirements
+- Creating and equipping spells
+- Applying spell effects
+- Completing quests
+- Loot distribution
+- Saving and loading characters
+
+### Browser Tests
+
+Cover essential user flows:
+
+1. Load application.
+2. Register or sign in through a test environment.
+3. Create a character.
+4. Enter the world.
+5. Access character sheet.
+6. Open inventory.
+7. Open Spellforge.
+8. Create and save a spell.
+9. Equip that spell.
+10. Return to the game.
+
+Use Firebase emulators for tests that involve backend state.
+
+Do not run destructive tests against production user data.
+
+### Development Quality
+
+At the end of each milestone:
+
+- Run TypeScript checks.
+- Run linting.
+- Run relevant tests.
+- Run a production build.
+- Fix errors introduced by the implementation.
+- Document remaining issues accurately.
+
+Never mark a feature complete when it is only represented by a placeholder or a nonfunctional interface.
+
+---
+
+# 22. FIREBASE HOSTING AND RELEASE
+
+Prepare the game for deployment to Firebase Hosting.
+
+Requirements:
+
+- Production build scripts
+- SPA routing support
+- Appropriate caching behavior
+- Environment configuration
+- Firestore Security Rules
+- Firestore indexes where needed
+- Firebase Emulator configuration
+- Deployment instructions
+
+Include a `firebase.json` configuration compatible with the actual Vite output directory.
+
+Do not deploy automatically without explicit authorization and a confirmed Firebase project.
+
+The game must not depend on local development URLs in production.
+
+### Release Documentation
+
+Include:
+
+- Local installation instructions
+- Firebase project setup
+- Environment configuration
+- Emulator instructions
+- Development startup
+- Test commands
+- Production build
+- Deployment steps
+- Controls guide
+- Basic gameplay guide
+- Known limitations
+- Asset licenses
+
+---
+
+# 23. FUTURE EXPANSION COMPATIBILITY
+
+Do not implement these features initially, but avoid architecture decisions that make them unnecessarily difficult:
+
+- Online multiplayer
+- Shared overworld zones
+- Cooperative dungeons
+- Party systems
+- Guilds
+- PvP arenas
+- Player trading
+- Auction house
+- More regions
+- More spell components
+- More equipment
+- Crafting professions
+- World bosses
+- Expanded character customization
+
+Future multiplayer must use authoritative server-side simulation for shared combat, movement validation, rewards, and economic transactions.
+
+Firestore should not be treated as a high-frequency real-time game simulation server.
+
+---
+
+# 24. PROJECT EXECUTION RULES
+
+Follow these instructions during development.
+
+1. Inspect the existing repository before modifying files.
+
+2. If the repository is empty, initialize the application using the chosen stack.
+
+3. Create a practical implementation plan and maintain progress in a `PROJECT_PLAN.md` file.
+
+4. Build the application incrementally, but actually write and integrate the code.
+
+5. Do not stop after generating a project plan or directory structure.
+
+6. Implement complete vertical slices rather than scattering incomplete features throughout the project.
+
+7. Prefer working gameplay over complicated abstractions.
+
+8. Make reasonable implementation decisions without repeatedly asking for approval.
+
+9. Ask for user input only when genuinely necessary, such as missing Firebase credentials, a required project selection, or access to external services.
+
+10. Do not invent credentials, external assets, or completed test results.
+
+11. Keep the application runnable after each milestone.
+
+12. Use original, maintainable code.
+
+13. Avoid paid libraries, proprietary game engines, and licensed commercial assets that would create unnecessary distribution restrictions.
+
+14. Document any third-party asset licenses and attribution requirements.
+
+15. Never expose Firebase administrative credentials.
+
+16. Never silently weaken security rules to work around permission errors.
+
+17. If a feature is too large for the current implementation phase, provide the smallest complete functional version and record future improvements.
+
+18. Do not replace gameplay with screenshots, mockups, or static menus.
+
+19. Track completed functionality separately from planned functionality.
+
+20. Prioritize the core Soulforge experience: movement, combat, character builds, loot, and custom spell creation.
+
+---
+
+# 25. MVP DEFINITION OF DONE
+
+The initial release is complete when a new user can:
+
+1. Open Soulforge in a desktop browser.
+2. Register an account.
+3. Create a character.
+4. Enter a stylized 3D fantasy world.
+5. Move freely using third-person controls.
+6. Interact with NPCs.
+7. Accept quests.
+8. Target and fight enemies.
+9. Gain experience and level up.
+10. Allocate attribute points.
+11. Obtain equipment and gold.
+12. Equip items according to attribute requirements.
+13. Open the Spellforge.
+14. Combine magical elements, spell forms, and modifiers.
+15. Create, name, and save a custom spell.
+16. Equip the created spell.
+17. Cast the spell during real-time combat.
+18. Defeat the starter-zone boss.
+19. Receive quest and loot rewards.
+20. Log out and later reload saved progress.
+
+All major actions must work in the actual game.
+
+The game must include appropriate testing and error handling.
+
+The first release does not need to be an MMO, feature dozens of regions, or contain hundreds of items.
+
+It must provide a cohesive, enjoyable, replayable foundation for a larger fantasy RPG.
+
+---
+
+# 26. FIRST TASK — BEGIN IMPLEMENTATION
+
+Start by inspecting the repository and determining whether the application already exists.
+
+Then:
+
+1. Establish the project architecture.
+2. Set up React, TypeScript, Vite, Babylon.js, and Firebase.
+3. Create the initial development plan.
+4. Implement the application shell and 3D scene.
+5. Implement the third-person character controller.
+6. Add a simple playable environment.
+7. Add the foundational character state and React HUD.
+8. Verify the project builds and launches.
+9. Continue progressing through milestones in dependency order.
+
+Do not stop at the architecture discussion.
+
+**Begin building Soulforge.**
+
+The final objective is a playable, persistent, browser-hosted fantasy RPG built around unrestricted character experimentation, meaningful equipment choices, and player-created magic.
