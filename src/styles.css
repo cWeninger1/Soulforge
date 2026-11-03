@@ -80,3 +80,16 @@ aside {
   left: auto;
   right: 18px;
 }
+.controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #142721eb;
+  color: #f2e5c5;
+  padding: 0.6rem 1rem;
+  border: 1px solid #ac9355;
+  font: 13px system-ui;
+  max-width: 95vw;
+  width: max-content;
+}

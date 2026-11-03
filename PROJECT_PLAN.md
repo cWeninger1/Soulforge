@@ -17,4 +17,4 @@ Source of scope: MasterPromt.txt §§1–26. Dependencies follow the numbers bel
 
 - Repository baseline: main contains the specification only. Firebase project ID `soulforged-34d3c`. Production email/password provider must be enabled before releasing account flows. Develop against emulators.
 - Milestone 1 verified. npm install, strict TypeScript, ESLint, RTL/Vitest, production build and Edge Playwright entry/return test passed. Build warns about large engine and Firebase chunks. Milestone 2 is next.
-
+- Milestone 2 implemented. Procedural terrain connects three named areas. A humanoid moves, sprints, jumps and follows an orbit camera with collision checks. TypeScript, lint, Vitest, production build and the Edge test sprinting from the village into the woods passed. Detailed collision and camera tuning remain playtest work.

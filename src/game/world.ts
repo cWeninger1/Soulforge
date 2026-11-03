@@ -1,13 +1,16 @@
+import { buildTerrain } from "./terrain";
+import { createTraveler } from "./controller";
 import { Engine } from "@babylonjs/core/Engines/engine";
 import { Scene } from "@babylonjs/core/scene";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
-import { Color3, Color4 } from "@babylonjs/core/Maths/math.color";
+import { Color4 } from "@babylonjs/core/Maths/math.color";
 import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera";
 import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight";
-import { CreateGround } from "@babylonjs/core/Meshes/Builders/groundBuilder";
-import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder";
-import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
-export function startWorld(canvas: HTMLCanvasElement, onReady: () => void) {
+export function startWorld(
+  canvas: HTMLCanvasElement,
+  onReady: () => void,
+  onZone: (zone: string) => void,
+) {
   const engine = new Engine(canvas, true);
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.61, 0.78, 0.8, 1);
@@ -21,22 +24,24 @@ export function startWorld(canvas: HTMLCanvasElement, onReady: () => void) {
   );
   camera.attachControl(canvas, true);
   new HemisphericLight("sky", new Vector3(0.3, 1, 0.2), scene);
-  const ground = CreateGround("meadow", { width: 80, height: 80 }, scene);
-  const turf = new StandardMaterial("moss", scene);
-  turf.diffuseColor = Color3.FromHexString("#769653");
-  ground.material = turf;
-  const stone = CreateCylinder(
-    "waystone",
-    { height: 3, diameterTop: 0.5, diameterBottom: 1.2, tessellation: 6 },
-    scene,
-  );
-  stone.position.y = 1.5;
+  scene.collisionsEnabled = true;
+  camera.checkCollisions = true;
+  camera.collisionRadius.set(0.2, 0.2, 0.2);
+  camera.lowerBetaLimit = 0.35;
+  camera.upperBetaLimit = 1.48;
+  camera.lowerRadiusLimit = 3;
+  camera.upperRadiusLimit = 14;
+  camera.panningSensibility = 0;
+  camera.wheelPrecision = 40;
+  const terrain = buildTerrain(scene);
+  const release = createTraveler(scene, camera, terrain, onZone);
   scene.onAfterRenderObservable.addOnce(onReady);
   const resize = () => engine.resize();
   window.addEventListener("resize", resize);
   engine.runRenderLoop(() => scene.render());
   return () => {
     window.removeEventListener("resize", resize);
+    release();
     scene.dispose();
     engine.dispose();
   };
