@@ -1,5 +1,6 @@
 import { items, slots, type Slot } from "../data/items";
 import type { Inventory } from "../systems/inventory";
+import { ItemGlyph } from "./ItemGlyph";
 export function InventoryPanel({
   bag,
   equip,
@@ -12,7 +13,7 @@ export function InventoryPanel({
   sort: () => void;
 }) {
   return (
-    <div>
+    <div className="window">
       <small>TRAVELER'S PACK</small>
       <h3>Inventory</h3>
       <p>
@@ -30,14 +31,25 @@ export function InventoryPanel({
             );
           const item = items[entry.item];
           const current = Object.values(bag.equipment).includes(entry.id);
+          const worn = bag.entries.find(
+            (e) => item.slot && bag.equipment[item.slot] === e.id,
+          );
+          const comparison = worn
+            ? "Currently wearing " +
+              items[worn.item].name +
+              " " +
+              JSON.stringify(items[worn.item].bonus)
+            : "Slot empty";
           const details = Object.entries(item.bonus)
             .map(([k, v]) => k + " +" + v)
             .join(", ");
           return (
             <button
+              data-rarity={item.rarity}
               title={[
                 item.rarity,
                 item.family,
+                comparison,
                 details,
                 JSON.stringify(item.requirements),
               ].join(" · ")}
@@ -45,6 +57,7 @@ export function InventoryPanel({
               key={entry.id}
               onClick={() => equip(entry.id)}
             >
+              <ItemGlyph item={item} />
               {current ? "◆ " : ""}
               {item.name}
               {entry.count > 1 ? " ×" + entry.count : ""}

@@ -1,13 +1,30 @@
 rules_version = '2';
 service cloud.firestore {
- match /databases/{database}/documents {
-  // One private atomic snapshot per account. Payload contents are client-trusted RPG progress.
-  match /users/{uid}/characters/first {
-   function owner(){return request.auth != null && request.auth.uid == uid;}
-   function valid(){let d=request.resource.data;return d.keys().hasOnly(['version','revision','payload']) && d.version == 1 && d.revision is int && d.revision > 0 && d.payload is string && d.payload.size() > 0 && d.payload.size() <= 96000;}
-   allow get, delete: if owner();
-   allow create: if owner() && valid() && request.resource.data.revision == 1;
-   allow update: if owner() && valid() && request.resource.data.revision == resource.data.revision + 1;
+  match /databases/{database}/documents {
+    // One private atomic snapshot per account. The application validates the
+    // serialized payload. Single-player progress is explicitly client-trusted.
+    match /users/{uid}/characters/first {
+      function owner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function valid() {
+        let data = request.resource.data;
+        let fields = ['version', 'revision', 'payload'];
+        return data.keys().hasAll(fields)
+          && data.keys().hasOnly(fields)
+          && data.version is int && data.version == 1
+          && data.revision is int && data.revision > 0
+          && data.revision <= 2147483647
+          && data.payload is string
+          && data.payload.size() > 0 && data.payload.size() <= 96000;
+      }
+
+      allow get, delete: if owner();
+      allow create: if owner() && valid()
+        && request.resource.data.revision == 1;
+      allow update: if owner() && valid()
+        && request.resource.data.revision == resource.data.revision + 1;
+    }
   }
- }
 }

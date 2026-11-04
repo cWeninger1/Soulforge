@@ -1,3 +1,6 @@
+import { textureGround } from "./surfaces";
+import { Mesh } from "@babylonjs/core/Meshes/mesh";
+import "@babylonjs/core/Meshes/instancedMesh";
 import type { Scene } from "@babylonjs/core/scene";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
 import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial";
@@ -61,6 +64,9 @@ export function buildTerrain(scene: Scene) {
   box("Valley floor", 0, -0.25, 0, 80, 0.5, 80, "#77995d", true);
   box("Trader road", 0, 0.016, 0, 4, 0.03, 78, "#b3a073");
   box("Village green", 0, 0.02, -23, 16, 0.03, 11, "#bfa479");
+  textureGround(scene, paint("#77995d"), false, 24, 24);
+  textureGround(scene, paint("#b3a073"), true, 1.4, 24);
+  textureGround(scene, paint("#bfa479"), true, 5, 4);
   for (const [x, z] of [
     [-9, -27],
     [8, -22],
@@ -72,6 +78,41 @@ export function buildTerrain(scene: Scene) {
       Math.PI / 4;
     box("Oak door", x, 0.95, z + 2.03, 1.2, 1.9, 0.1, "#584130");
     box("Lit window", x + 1.5, 1.7, z + 2.05, 0.8, 0.8, 0.1, "#ffcd78");
+    for (const side of [-1, 1]) {
+      box("Gable beam", x + side * 2.3, 1.7, z, 0.18, 3.5, 4.1, "#73523d");
+      box(
+        "Back shutter",
+        x + side * 1.35,
+        1.65,
+        z - 2.03,
+        0.9,
+        1.1,
+        0.11,
+        "#674b35",
+      );
+      box(
+        "Window glow",
+        x + side * 1.35,
+        1.68,
+        z - 2.1,
+        0.65,
+        0.78,
+        0.06,
+        "#eec67c",
+      );
+      box(
+        "Window mullion",
+        x + side * 1.35,
+        1.68,
+        z - 2.15,
+        0.07,
+        0.78,
+        0.06,
+        "#846643",
+      );
+    }
+    box("Cross timber", x, 2.7, z - 2.08, 4.9, 0.15, 0.14, "#76533a");
+    box("Stone foundation", x, 0.24, z, 5.2, 0.48, 4.2, "#827c69");
     box("Chimney", x + 1.4, 3.8, z, 0.6, 2, 0.6, "#76685a");
   }
   for (let i = 0; i < 64; i++) {
@@ -115,7 +156,53 @@ export function buildTerrain(scene: Scene) {
     [0, 40, 80, 1],
   ]) {
     const wall = box("Cliff boundary", x, 2, z, w, 6, d, "#80917a", true);
-    wall.visibility = 0.9;
+    wall.isVisible = false;
   }
-  return { box, paint };
+  for (let i = 0; i < 30; i++) {
+    const a = (i * Math.PI) / 15;
+    const r = 53 + (i % 4) * 4;
+    const hill = cone(
+      "Distant ridgeline",
+      Math.cos(a) * r,
+      4,
+      Math.sin(a) * r,
+      31 + (i % 4) * 5,
+      0,
+      15 + ((i * 7) % 16),
+      i % 2 ? "#708d80" : "#647f77",
+      6,
+    );
+    hill.rotation.y = a;
+  }
+  const blade = cone(
+    "Meadow grass",
+    -20,
+    0.18,
+    -18,
+    0.3,
+    0,
+    0.48,
+    "#94aa65",
+    3,
+  );
+  for (let i = 0; i < 150; i++) {
+    const grass = blade.createInstance("Grass");
+    grass.position.set(
+      (i % 2 ? 1 : -1) * (3 + ((i * 19) % 34)),
+      0.18,
+      -37 + ((i * 17) % 74),
+    );
+    grass.rotation.y = i;
+  }
+  // Batch static decorative geometry by material. Keep individual collision meshes for movement and sight tests.
+  const decorations = scene.meshes.filter(
+    (m): m is Mesh =>
+      m instanceof Mesh && !m.checkCollisions && !m.hasInstances && m !== blade,
+  );
+  for (const material of palette.values()) {
+    const group = decorations.filter((m) => m.material === material);
+    if (group.length > 1) Mesh.MergeMeshes(group, true, true);
+  }
+  for (const m of scene.meshes) m.freezeWorldMatrix();
+  return { box, paint, cone };
 }

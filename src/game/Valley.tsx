@@ -1,4 +1,6 @@
+import { defaultSettings } from "./audio";
 import type { Save } from "../services/save";
+import { SaveConflictError } from "../services/cloud";
 import { Journal } from "../components/Journal";
 import { Spellforge } from "../components/Spellforge";
 import { InventoryPanel } from "../components/InventoryPanel";
@@ -11,30 +13,55 @@ export default function Valley({
   initial,
   onSave,
   onExit,
+  onReload,
 }: {
   initial?: Save;
   onSave?: (s: Save) => Promise<void>;
   onExit?: (s: Save) => void;
+  onReload?: () => void;
 } = {}) {
+  const [settings, setSettings] = useState(
+    initial?.settings ?? defaultSettings,
+  );
+  const [paused, setPaused] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
   const [leaving, setLeaving] = useState(false);
+  const [conflict, setConflict] = useState(false);
+  const conflictRef = useRef(false);
   const saver = useRef(onSave);
   saver.current = onSave;
   async function checkpoint(exit = false) {
     const snapshot = world.current?.combat.snapshot();
-    if (!snapshot || !saver.current) return;
-    if (exit) setLeaving(true);
+    if (!snapshot || !saver.current || conflictRef.current) return;
+    if (exit) {
+      setLeaving(true);
+      world.current?.pause(true);
+    }
     try {
       await saver.current(snapshot);
       setSaveStatus("Character saved");
       if (exit) onExit?.(snapshot);
     } catch (e) {
-      setSaveStatus(String(e));
+      setSaveStatus(e instanceof Error ? e.message : String(e));
+      if (e instanceof SaveConflictError) {
+        conflictRef.current = true;
+        setConflict(true);
+        setPaused(true);
+      }
     } finally {
-      if (exit) setLeaving(false);
+      if (exit) {
+        setLeaving(false);
+        world.current?.pause(paused || conflictRef.current);
+      }
     }
   }
   const canvas = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    world.current?.configure(settings);
+  }, [settings]);
+  useEffect(() => {
+    world.current?.pause(paused || conflict);
+  }, [paused, conflict]);
   const [ready, setReady] = useState(false);
   const [zone, setZone] = useState("Emberfall Village");
   const world = useRef<ReturnType<typeof startWorld> | null>(null);
@@ -47,11 +74,18 @@ export default function Valley({
     const t = window.setTimeout(() => void checkpoint(), 400);
     return () => window.clearTimeout(t);
   }, [progression]);
-  const [sheet, setSheet] = useState(false);
-  const [journal, setJournal] = useState(false);
-  const [talk, setTalk] = useState(false);
-  const [forge, setForge] = useState(false);
-  const [pack, setPack] = useState(false);
+  type Panel =
+    "Character" | "Inventory" | "Spellforge" | "Journal" | "Dialogue";
+  const [panel, setPanel] = useState<Panel | null>(null);
+  const panelRef = useRef(panel);
+  panelRef.current = panel;
+  const toggle = (name: Panel) => setPanel((p) => (p === name ? null : name));
+  const interact = () => {
+    const s = world.current?.combat.station();
+    if (s?.id === "forge") toggle("Spellforge");
+    else if (s?.id === "herbs") world.current?.combat.gather();
+    else if (s) toggle("Dialogue");
+  };
   useEffect(() => {
     const active = startWorld(
       canvas.current!,
@@ -70,19 +104,21 @@ export default function Valley({
         }, 10000)
       : undefined;
     const key = (e: KeyboardEvent) => {
+      if (conflictRef.current) return;
       if (/INPUT|TEXTAREA|SELECT/.test((e.target as HTMLElement)?.tagName))
         return;
-      if (e.code === "KeyJ" && !e.repeat) setJournal((v) => !v);
-      if (e.code === "KeyE" && !e.repeat) setTalk((v) => !v);
-      if (e.code === "KeyK" && !e.repeat) setForge((v) => !v);
-      if (e.code === "KeyC" && !e.repeat) setSheet((s) => !s);
-      if (e.code === "KeyI" && !e.repeat) setPack((v) => !v);
+      if (e.repeat) return;
+      const hotkeys: Record<string, Panel> = {
+        KeyJ: "Journal",
+        KeyK: "Spellforge",
+        KeyI: "Inventory",
+        KeyC: "Character",
+      };
+      if (hotkeys[e.code]) toggle(hotkeys[e.code]);
+      if (e.code === "KeyE") interact();
       if (e.key === "Escape") {
-        setSheet(false);
-        setJournal(false);
-        setTalk(false);
-        setPack(false);
-        setForge(false);
+        if (panelRef.current) setPanel(null);
+        else setPaused((v) => !v);
       }
     };
     window.addEventListener("keydown", key);
@@ -94,10 +130,17 @@ export default function Valley({
     };
   }, [initial]);
   return (
-    <section>
+    <section inert={leaving}>
       <canvas ref={canvas} aria-label="Emberfall Valley world" tabIndex={0} />
       <header>
         <small>{zone}</small>
+        <button
+          aria-label="Pause and settings"
+          className="gear"
+          onClick={() => setPaused(!paused)}
+        >
+          ⚙
+        </button>
         <h2>Emberfall Valley</h2>
         {onSave ? (
           <>
@@ -138,16 +181,16 @@ export default function Valley({
               <progress value={hud.target} max={hud.targetMax} />
             </label>
           )}
-          <p>{hud.message}</p>
+          <p className="combat-log">{hud.message}</p>
           <button onClick={() => world.current?.combat.select()}>
             Target
           </button>{" "}
           <button onClick={() => world.current?.combat.engage()}>
             Attack (F)
           </button>{" "}
-          <button onClick={() => setSheet(!sheet)}>Character (C)</button>
-          <button onClick={() => setPack(!pack)}>Inventory (I)</button>
-          {pack && (
+          <button onClick={() => toggle("Character")}>Character (C)</button>
+          <button onClick={() => toggle("Inventory")}>Inventory (I)</button>
+          {panel === "Inventory" && (
             <InventoryPanel
               bag={hud.bag}
               equip={(id) => world.current?.combat.equipItem(id)}
@@ -155,12 +198,12 @@ export default function Valley({
               sort={() => world.current?.combat.sort()}
             />
           )}
-          <button onClick={() => setForge(!forge)}>Spellforge (K)</button>
-          {forge && world.current && (
+          <button onClick={() => toggle("Spellforge")}>Spellforge (K)</button>
+          {panel === "Spellforge" && world.current && (
             <Spellforge hud={hud} actions={world.current.combat} />
           )}
           <p>{hud.status}</p>
-          <div aria-label="Action bar">
+          <div className="actionbar" aria-label="Action bar">
             {hud.book.slots.map((id, i) => (
               <button
                 key={i}
@@ -173,38 +216,34 @@ export default function Valley({
               </button>
             ))}
           </div>
-          <button onClick={() => setJournal(!journal)}>Journal (J)</button>
+          <button onClick={() => toggle("Journal")}>Journal (J)</button>
           {hud.station && (
-            <button
-              onClick={() => {
-                if (hud.station?.id === "forge") setForge(!forge);
-                else if (hud.station?.id === "herbs")
-                  world.current?.combat.gather();
-                else setTalk(!talk);
-              }}
-            >
-              {hud.station.name} · Interact
-            </button>
+            <button onClick={interact}>{hud.station.name} · Interact</button>
           )}
           {world.current &&
-            (journal ||
-              (talk &&
+            (panel === "Journal" ||
+              (panel === "Dialogue" &&
                 hud.station &&
                 (hud.station.id === "warden" ||
                   hud.station.id === "merchant"))) && (
               <Journal
                 hud={hud}
                 actions={world.current.combat}
-                dialog={!!(talk && hud.station)}
+                dialog={!!(panel === "Dialogue" && hud.station)}
               />
             )}
+          {panel && (
+            <button className="close-panel" onClick={() => setPanel(null)}>
+              Close {panel}
+            </button>
+          )}
           {hud.health === 0 && (
             <button onClick={() => world.current?.combat.respawn()}>
               Respawn in village
             </button>
           )}
-          {sheet && (
-            <div>
+          {panel === "Character" && (
+            <div className="window">
               <h3>Character sheet</h3>
               <button onClick={() => world.current?.combat.respec()}>
                 Refund attributes
@@ -233,6 +272,57 @@ export default function Valley({
             </div>
           )}
         </aside>
+      )}
+      {paused && (
+        <div className="veil">
+          <div className="settings">
+            <small>BY THE CAMPFIRE</small>
+            <h2>Paused</h2>
+            {conflict && (
+              <div role="alert">
+                <p>{saveStatus}</p>
+                <p>Your local changes will be discarded when you reload.</p>
+                <button onClick={onReload}>Reload cloud progress</button>
+              </div>
+            )}
+            {(["master", "music", "effects", "sensitivity"] as const).map(
+              (k) => (
+                <label key={k}>
+                  {k}
+                  <input
+                    type="range"
+                    aria-label={k}
+                    min={k === "sensitivity" ? 0.4 : 0}
+                    max={k === "sensitivity" ? 2 : 1}
+                    step=".05"
+                    value={settings[k]}
+                    onChange={(e) =>
+                      setSettings({ ...settings, [k]: Number(e.target.value) })
+                    }
+                  />
+                </label>
+              ),
+            )}
+            <label>
+              Graphics{" "}
+              <select
+                value={settings.quality}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    quality: e.target.value as "High" | "Low",
+                  })
+                }
+              >
+                <option>High</option>
+                <option>Low</option>
+              </select>
+            </label>
+            <button disabled={conflict} onClick={() => setPaused(false)}>
+              Resume adventure
+            </button>
+          </div>
+        </div>
       )}
       {!ready && <aside role="status">Lighting the valley…</aside>}
     </section>

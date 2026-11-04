@@ -5,6 +5,12 @@ import {
   type Firestore,
 } from "firebase/firestore";
 import { parseSave, type Save } from "./save";
+export class SaveConflictError extends Error {
+  constructor() {
+    super("A newer cloud save exists. Reload cloud progress to continue.");
+    this.name = "SaveConflictError";
+  }
+}
 export const slotRef = (db: Firestore, uid: string) =>
   doc(db, "users", uid, "characters", "first");
 export async function loadSlot(db: Firestore, uid: string) {
@@ -29,7 +35,7 @@ export async function writeSlot(
   return runTransaction(db, async (tx) => {
     const old = await tx.get(ref);
     if ((old.exists() ? old.get("revision") : 0) !== revision)
-      throw Error("A newer cloud save exists. Return to camp and reload it.");
+      throw new SaveConflictError();
     tx.set(ref, { version: 1, revision: revision + 1, payload });
     return revision + 1;
   });

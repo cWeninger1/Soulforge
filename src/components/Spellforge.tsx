@@ -25,6 +25,14 @@ export function Spellforge({
 }) {
   const [draft, set] = useState<Design>(blank);
   const p = preview(draft, hud.stats.magic);
+  const effect =
+    draft.form === "Barrier"
+      ? `Absorbs ${p.power} damage for ${p.duration} seconds.`
+      : draft.form === "Enchantment"
+        ? `Adds ${Math.ceil(p.power * 0.4)} damage to weapon hits for ${p.duration} seconds.`
+        : draft.element === "Nature" && draft.form === "Projectile"
+          ? `Restores ${p.power} health to you.`
+          : `Deals up to ${p.power} ${draft.element.toLowerCase()} damage before resistance.`;
   const error = spellError(
     draft,
     hud.book,
@@ -33,9 +41,10 @@ export function Spellforge({
     !!hud.bag.equipment["Main Hand"],
   );
   return (
-    <div className="forge">
+    <div className="window forge">
       <small>ARCANE WORKSHOP</small>
       <h3>Spellforge</h3>
+      <p>{effect}</p>
       <label>
         Spell name
         <input

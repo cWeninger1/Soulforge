@@ -49,6 +49,9 @@ try {
   await denied(getDocs(collection(b.db, "users", uid, "characters")));
   await denied(setDoc(own, data));
   await denied(setDoc(own, { ...data, revision: 2, admin: true }));
+  await denied(setDoc(own, { version: 1, revision: 2 }));
+  await denied(setDoc(own, { ...data, revision: 2, payload: 42 }));
+  await denied(setDoc(own, { ...data, revision: -1 }));
   await denied(
     setDoc(own, { ...data, revision: 2, payload: "x".repeat(96001) }),
   );

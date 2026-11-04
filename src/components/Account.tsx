@@ -164,6 +164,13 @@ function Roster({ user }: { user: User }) {
       <Valley
         initial={slot}
         onSave={save}
+        onReload={() => {
+          void queue.current.then(() => {
+            setPlay(false);
+            setSlot(undefined);
+            retry((value) => value + 1);
+          });
+        }}
         onExit={(data) => {
           setSlot(data);
           setPlay(false);

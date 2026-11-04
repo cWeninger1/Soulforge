@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 test("register, create, equip, save, sign back in and delete a traveler", async ({
   page,
+  context,
 }) => {
   test.skip(
     !process.env.FIRESTORE_EMULATOR_HOST,
@@ -18,6 +19,14 @@ test("register, create, equip, save, sign back in and delete a traveler", async 
   await page
     .getByRole("button", { name: "Create character", exact: true })
     .click();
+  await expect(
+    page.getByRole("button", { name: "Continue adventure" }),
+  ).toBeVisible();
+  const olderSession = await context.newPage();
+  await olderSession.goto("/account");
+  await expect(
+    olderSession.getByRole("button", { name: "Continue adventure" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Continue adventure" }).click();
   await page.getByRole("button", { name: "Inventory (I)" }).click();
   await page.getByRole("button", { name: "Willow Crook", exact: true }).click();
@@ -25,7 +34,34 @@ test("register, create, equip, save, sign back in and delete a traveler", async 
     page.getByRole("button", { name: "Remove Willow Crook" }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Save and return to camp" }).click();
+  await expect(
+    page.getByRole("button", { name: "Continue adventure" }),
+  ).toBeVisible();
+  await olderSession
+    .getByRole("button", { name: "Continue adventure" })
+    .click();
+  await olderSession.getByRole("button", { name: "Inventory (I)" }).click();
+  await olderSession
+    .getByRole("button", { name: "Willow Crook", exact: true })
+    .click();
+  await expect(
+    olderSession.getByRole("button", { name: "Reload cloud progress" }),
+  ).toBeVisible();
+  await olderSession
+    .getByRole("button", { name: "Reload cloud progress" })
+    .click();
+  await olderSession
+    .getByRole("button", { name: "Continue adventure" })
+    .click();
+  await olderSession.getByRole("button", { name: "Inventory (I)" }).click();
+  await expect(
+    olderSession.getByRole("button", { name: "Remove Willow Crook" }),
+  ).toBeVisible();
+  await olderSession.close();
   await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(
+    page.getByRole("button", { name: "Register", exact: true }),
+  ).toBeVisible();
   await page.reload();
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);

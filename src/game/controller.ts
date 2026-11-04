@@ -1,3 +1,4 @@
+import { Ray } from "@babylonjs/core/Culling/ray";
 import type { Save } from "../services/save";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { TransformNode } from "@babylonjs/core/Meshes/transformNode";
@@ -32,7 +33,18 @@ export function createTraveler(
     d: number,
     color: string,
   ) => {
-    const m = terrain.box(name, x, y, z, w, h, d, color);
+    const m = terrain.cone(
+      name,
+      x,
+      y,
+      z,
+      w,
+      w * (name === "Boot" ? 0.75 : name === "Tunic" ? 1.25 : 0.88),
+      h,
+      color,
+      8,
+    );
+    m.scaling.z = d / w;
     m.parent = model;
     return m;
   };
@@ -62,12 +74,44 @@ export function createTraveler(
       initial.profile.color
     ],
   );
+  const cloak = part(
+    "Split cloak",
+    0,
+    1.03,
+    -0.22,
+    0.79,
+    0.85,
+    0.16,
+    "#31574c",
+  );
+  cloak.rotation.x = -0.15;
+  part("Hood collar", 0, 1.48, -0.07, 0.66, 0.19, 0.48, "#ad915c");
+  part("Travel pouch", -0.3, 0.82, 0.06, 0.24, 0.23, 0.23, "#906b4d");
+  part("Bronze clasp", 0, 1.42, 0.26, 0.1, 0.12, 0.06, "#ddb867");
+  for (const side of [-1, 1]) {
+    part("Mantle", side * 0.39, 1.42, 0, 0.32, 0.2, 0.4, "#8b7958");
+    part("Gauntlet", side * 0.44, 0.97, 0, 0.23, 0.24, 0.24, "#766151");
+    part("Leather cuff", side * 0.17, 0.6, 0, 0.28, 0.12, 0.3, "#a1845e");
+  }
   const legs = [-1, 1].map((side) =>
     part("Boot", side * 0.17, 0.43, 0, 0.26, 0.79, 0.29, "#473e39"),
   );
   const arms = [-1, 1].map((side) =>
     part("Sleeve", side * 0.43, 1.15, 0, 0.22, 0.64, 0.26, "#b68b55"),
   );
+  const shadow = terrain.cone(
+    "Traveler shadow",
+    0,
+    0.048,
+    0,
+    1.05,
+    1.05,
+    0.012,
+    "#49483d",
+    14,
+  );
+  shadow.isPickable = false;
+  shadow.visibility = 0.3;
   const keys = new Set<string>();
   let jumping = false;
   let velocityY = 0;
@@ -104,8 +148,8 @@ export function createTraveler(
   const anchor = body.position.add(new Vector3(0, 1.35, 0));
   camera.setTarget(anchor);
   camera.alpha = -Math.PI / 2;
-  camera.beta = 1.12;
-  camera.radius = 8;
+  camera.beta = 1.33;
+  camera.radius = 9;
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
     if (!canMove()) {
@@ -127,14 +171,33 @@ export function createTraveler(
       model.rotation.y = Math.atan2(dir.x, dir.z);
       stride += speed * dt * 2.5;
     }
+    grounded =
+      velocityY <= 0 &&
+      !!scene.pickWithRay(
+        new Ray(
+          body.position.add(new Vector3(0, 0.1, 0)),
+          Vector3.Down(),
+          0.15,
+        ),
+        (mesh) => mesh.checkCollisions && mesh !== body,
+      )?.hit;
     if (grounded && jumping) velocityY = 7;
     jumping = false;
     velocityY -= 18 * dt;
-    const before = body.position.y;
+
     body.moveWithCollisions(
       new Vector3(dir.x * speed * dt, velocityY * dt, dir.z * speed * dt),
     );
-    grounded = velocityY < 0 && Math.abs(before - body.position.y) < 0.002;
+    grounded =
+      velocityY <= 0 &&
+      !!scene.pickWithRay(
+        new Ray(
+          body.position.add(new Vector3(0, 0.1, 0)),
+          Vector3.Down(),
+          0.15,
+        ),
+        (mesh) => mesh.checkCollisions && mesh !== body,
+      )?.hit;
     if (grounded) velocityY = 0;
     for (let i = 0; i < 2; i++) {
       const swing =
@@ -143,6 +206,9 @@ export function createTraveler(
       legs[i].rotation.x = swing;
       arms[i].rotation.x = -swing;
     }
+    shadow.position.x = body.position.x;
+    shadow.position.z = body.position.z;
+    shadow.scaling.setAll(Math.max(0.55, 1 - body.position.y * 0.18));
     camera.target.copyFrom(body.position);
     camera.target.y += 1.35;
     const zone =

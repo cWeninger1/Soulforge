@@ -6,7 +6,7 @@ export default ts.config(
   js.configs.recommended,
   {
     files: ["tests/emulator/*.mjs"],
-    languageOptions: { globals: globals.node },
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   ...ts.configs.recommended,
 );

@@ -20,7 +20,7 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
             : "Ruins Guardian";
     const boss = index === 7,
       wisp = index === 5 || index === 6;
-    const wolf = terrain.box(
+    const mesh = terrain.box(
       name,
       x,
       0.67,
@@ -30,7 +30,8 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
       1.5,
       boss ? "#76898a" : wisp ? "#ad8ee0" : index < 3 ? "#79746b" : "#708752",
     );
-    wolf.ellipsoid.set(0.4, 0.5, 0.7);
+    mesh.checkCollisions = true;
+    mesh.ellipsoid.set(0.4, 0.5, 0.7);
     if (index < 3) {
       const head = terrain.box(
         "Wolf head",
@@ -42,7 +43,7 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
         0.59,
         "#9b9281",
       );
-      head.parent = wolf;
+      head.parent = mesh;
       for (const side of [-1, 1]) {
         const ear = terrain.box(
           "Pointed ear",
@@ -54,7 +55,7 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
           0.19,
           "#48473f",
         );
-        ear.parent = wolf;
+        ear.parent = mesh;
         for (const end of [-1, 1]) {
           const leg = terrain.box(
             "Paw",
@@ -66,11 +67,11 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
             0.21,
             "#4d4941",
           );
-          leg.parent = wolf;
+          leg.parent = mesh;
         }
       }
     } else if (!wisp) {
-      wolf.scaling.set(boss ? 2 : 1, boss ? 3 : 1.5, 1);
+      mesh.scaling.set(boss ? 2 : 1, boss ? 3 : 1.5, 1);
       const face = terrain.box(
         "Mask",
         0,
@@ -81,10 +82,10 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
         0.45,
         boss ? "#a79d75" : "#849660",
       );
-      face.parent = wolf;
+      face.parent = mesh;
     } else {
-      wolf.scaling.set(0.66, 1, 0.5);
-      wolf.position.y = 1.45;
+      mesh.scaling.set(0.66, 1, 0.5);
+      mesh.position.y = 1.45;
     }
     const max = boss ? 150 : wisp ? 27 : index < 3 ? 36 : 48;
     return {
@@ -93,8 +94,8 @@ export function spawnEnemies(terrain: ReturnType<typeof buildTerrain>) {
       range: wisp ? 8 : boss ? 3 : 1.9,
       power: boss ? 14 : wisp ? 7 : 8,
       windup: 0,
-      wolf,
-      home: wolf.position.clone(),
+      mesh,
+      home: mesh.position.clone(),
       hp: max,
       timer: 0,
       phase: "Patrol",

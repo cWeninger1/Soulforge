@@ -168,3 +168,186 @@ aside {
   margin-left: 0.5rem;
   padding: 0.4rem;
 }
+.title {
+  background:
+    linear-gradient(90deg, #0c2426ed 2%, #153332bc 36%, #172d2822 75%),
+    url("/valley.svg") center/cover;
+  justify-items: start;
+  text-align: left;
+  padding-left: clamp(2rem, 10vw, 12rem);
+}
+.title h1 {
+  color: #ffe6aa;
+  text-shadow: 0 0.04em 0.18em #13242290;
+}
+.title .button {
+  margin: 1.2rem 0 0.1rem;
+  background: linear-gradient(#8b6236, #594126);
+  border: 1px solid #ddbf83;
+  box-shadow: inset 0 0 0 3px #483722;
+}
+.title footer {
+  max-width: 34rem;
+}
+.hud progress {
+  height: 0.55rem;
+}
+.hud label:nth-child(2) progress {
+  accent-color: #c5534a;
+}
+.hud label:nth-child(3) progress {
+  accent-color: #649bc7;
+}
+.hud label:nth-child(4) progress {
+  accent-color: #88a861;
+}
+.hud h3,
+.settings h2 {
+  font: 1.6rem Georgia;
+  color: #f6d59a;
+}
+.hud button:hover:not(:disabled),
+.button:hover,
+button:focus-visible {
+  background: #967143;
+}
+.gear {
+  float: right;
+  border: 0;
+  background: none;
+  font-size: 1.1rem;
+  padding: 0 0.4rem;
+}
+.veil {
+  position: fixed;
+  inset: 0;
+  background: #10231fd9;
+  display: grid;
+  place-items: center;
+}
+.settings {
+  background: #1e342d;
+  border: 1px solid #c2a36c;
+  min-width: 300px;
+  padding: 2rem;
+}
+.settings label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-transform: capitalize;
+  margin: 1rem 0;
+}
+.hit-number {
+  position: absolute;
+  pointer-events: none;
+  animation: rise 0.85s ease-out forwards;
+  color: #ffdc8c;
+  font: 700 1.5rem Georgia;
+  text-shadow: 1px 2px 2px black;
+}
+.hurt {
+  color: #ff9176;
+}
+@keyframes rise {
+  to {
+    opacity: 0;
+    transform: translateY(-42px);
+  }
+}
+.hud {
+  overflow: visible;
+  max-height: none;
+  background: linear-gradient(145deg, #182c27f2, #1b2722e8);
+  box-shadow: 0 6px 20px #12251f44;
+  border: 1px solid #b89b62;
+  border-top: 3px solid #d9b979;
+}
+.hud > button {
+  margin: 2px;
+}
+.hud > .window,
+.window {
+  position: fixed;
+  z-index: 2;
+  left: 50%;
+  top: 43%;
+  transform: translate(-50%, -50%);
+  width: min(410px, 43vw);
+  max-height: 62vh;
+  overflow: auto;
+  margin: 0;
+  padding: 1.25rem 1.5rem 1.6rem;
+  background: linear-gradient(145deg, #253b32, #182921 85%);
+  box-shadow:
+    0 1rem 3rem #101b1ca8,
+    inset 0 0 0 4px #20352b;
+  border: 1px solid #cca66c;
+}
+.hud .window h3 {
+  margin: 0.4rem 0;
+  border-bottom: 1px solid #8f794d;
+  padding-bottom: 0.4rem;
+}
+.hud .forge {
+  background: linear-gradient(130deg, #3c3542, #242a31 75%);
+}
+.close-panel {
+  position: fixed;
+  left: 50%;
+  top: 76%;
+  transform: translateX(-50%);
+  z-index: 2;
+}
+.actionbar {
+  position: fixed;
+  bottom: 3.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  background: #162721ed;
+  border: 1px solid #c0a16b;
+  padding: 5px;
+}
+.actionbar button {
+  width: clamp(56px, 6.2vw, 96px);
+  height: 42px;
+  font: 600 0.76rem Georgia;
+}
+.actionbar button:disabled {
+  background: #3b4336;
+  color: #ccbd96;
+}
+.veil {
+  z-index: 4;
+}
+.combat-log {
+  color: #efce8c;
+  border-block: 1px solid #705f42;
+  padding: 0.55rem 0;
+}
+.window [data-rarity="Uncommon"] {
+  color: #a3d68d;
+}
+.window [data-rarity="Rare"] {
+  color: #a1cfff;
+}
+.window [data-rarity="Epic"] {
+  color: #dfb5ff;
+}
+.controls {
+  white-space: normal;
+}
+.item-glyph {
+  width: 24px;
+  height: 24px;
+  display: block;
+  margin: 0 auto 0.25rem;
+}
+.grid button {
+  padding: 0.4rem;
+}
+.grid .empty {
+  min-height: 3.6rem;
+}

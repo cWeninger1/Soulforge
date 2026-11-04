@@ -1,3 +1,4 @@
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode";
 import { CreateSphere } from "@babylonjs/core/Meshes/Builders/sphereBuilder";
 import { Vector3 } from "@babylonjs/core/Maths/math.vector";
 import { Color3 } from "@babylonjs/core/Maths/math.color";
@@ -10,7 +11,14 @@ const colors = {
   Arcane: "#b792ff",
   Nature: "#87ed90",
 };
-export function showMagic(scene: Scene, d: Design, from: Vector3, to: Vector3) {
+export function showMagic(
+  scene: Scene,
+  d: Design,
+  from: Vector3,
+  to: Vector3,
+  attachment?: TransformNode,
+  duration = 0.55,
+) {
   const orb = CreateSphere(
     "Spell · " + d.name,
     { diameter: 1, segments: 8 },
@@ -21,13 +29,15 @@ export function showMagic(scene: Scene, d: Design, from: Vector3, to: Vector3) {
   mat.emissiveColor = Color3.FromHexString(colors[d.element]);
   orb.material = mat;
   mat.wireframe = d.form === "Barrier" || d.form === "Nova";
+  if (attachment) orb.parent = attachment;
   let age = 0;
   const start = from.clone(),
     end = to.clone();
   const obs = scene.onBeforeRenderObservable.add(() => {
     age += Math.min(0.05, scene.getEngine().getDeltaTime() / 1000);
-    const t = Math.min(1, age / 0.55);
-    orb.position.copyFrom(Vector3.Lerp(start, end, t));
+    const t = Math.min(1, age / duration);
+    if (attachment) orb.position.set(0, d.form === "Barrier" ? 0.95 : 0, 0);
+    else Vector3.LerpToRef(start, end, t, orb.position);
     orb.scaling.setAll(
       d.form === "Nova"
         ? 1 + t * 9

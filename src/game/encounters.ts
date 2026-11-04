@@ -1,3 +1,5 @@
+import { damageNumber, targetMarker } from "./feedback";
+import type { Cue } from "./audio";
 import type { Save } from "../services/save";
 import { spawnEnemies } from "./enemies";
 import { nearStation, buildStations } from "./villagers";
@@ -39,7 +41,13 @@ export function encounters(
   body: Mesh,
   notify: (state: CombatView) => void,
   initial: Save,
+  cue: (c: Cue) => void,
+  paused: () => boolean,
 ) {
+  const marker = targetMarker(scene, terrain);
+  const model = scene.getTransformNodeByName("Traveler");
+  let recoil = 0,
+    swing = 0;
   const journal = initial.journal;
   let gathered = initial.gathered,
     explored = initial.explored;
@@ -110,15 +118,17 @@ export function encounters(
   let seen = "";
   const alive = () =>
     enemies.filter(
-      (e) => e.hp > 0 && Vector3.Distance(body.position, e.wolf.position) < 16,
+      (e) => e.hp > 0 && Vector3.Distance(body.position, e.mesh.position) < 16,
     );
   type Enemy = (typeof enemies)[number];
   function strike(e: Enemy, hit: number) {
     if (!e.hp) return;
+    damageNumber(scene, e.mesh.position, hit);
     e.hp = Math.max(0, e.hp - hit);
     if (!e.hp) {
+      cue("loot");
       credit(journal, e.name);
-      e.wolf.setEnabled(false);
+      e.mesh.setEnabled(false);
       e.phase = "Dead";
       e.timer = clock + 20;
       hero.xp += 24;
@@ -134,7 +144,11 @@ export function encounters(
     }
   }
   function select() {
-    const list = alive();
+    const list = alive().sort(
+      (a, b) =>
+        Vector3.DistanceSquared(a.mesh.position, body.position) -
+        Vector3.DistanceSquared(b.mesh.position, body.position),
+    );
     target = list.length
       ? list[(list.findIndex((e) => e.index === target) + 1) % list.length]
           .index
@@ -148,12 +162,12 @@ export function encounters(
     const dir = wolf.position.subtract(origin);
     const hit = scene.pickWithRay(
       new Ray(origin, dir.normalizeToNew(), dir.length()),
-      (m) => m.checkCollisions && m !== body,
+      (m) => m.checkCollisions && m !== body && m !== wolf,
     );
     return !hit?.hit;
   }
   function engage() {
-    if (hero.health <= 0) return;
+    if (hero.health <= 0 || paused()) return;
     if (target < 0) select();
     auto = target >= 0 && !auto;
     message = auto
@@ -200,7 +214,11 @@ export function encounters(
     };
     const index = book.designs.findIndex((v) => v.id === design.id);
     if (index >= 0) book.designs[index] = design;
-    else book.designs.push(design);
+    else if (book.designs.length < 100) book.designs.push(design);
+    else {
+      message = "Spellbook full.";
+      return;
+    }
     message = "Inscribed " + design.name;
   }
   function removeSpell(id: string) {
@@ -213,6 +231,8 @@ export function encounters(
     if (id && (!d || eligibility(d))) return;
     book.slots[index] = id;
   }
+  let mendingUntil = 0,
+    mendingRate = 0;
   const burns: {
     enemy: Enemy;
     remaining: number;
@@ -241,15 +261,15 @@ export function encounters(
         message = "Select a living target.";
         return;
       }
-      if (Vector3.Distance(at, e.wolf.position) > p.range) {
+      if (Vector3.Distance(at, e.mesh.position) > p.range) {
         message = "Target out of range.";
         return;
       }
-      if (!sight(e.wolf)) {
+      if (!sight(e.mesh)) {
         message = "Line of sight blocked.";
         return;
       }
-      to = e.wolf.position;
+      to = e.mesh.position;
       victims = [e];
       if (d.modifier === "Chain")
         victims.push(
@@ -258,8 +278,8 @@ export function encounters(
               (other) =>
                 other !== e &&
                 other.hp > 0 &&
-                Vector3.Distance(to, other.wolf.position) < 5 &&
-                sight(other.wolf),
+                Vector3.Distance(to, other.mesh.position) < 5 &&
+                sight(other.mesh),
             )
             .slice(0, 2),
         );
@@ -268,13 +288,22 @@ export function encounters(
       victims = enemies.filter(
         (e) =>
           e.hp > 0 &&
-          Vector3.Distance(at, e.wolf.position) <= p.range &&
-          sight(e.wolf),
+          Vector3.Distance(at, e.mesh.position) <= p.range &&
+          sight(e.mesh),
       );
+    if (paused()) return;
+    cue("cast");
+    swing = 0.4;
     hero.mana -= p.mana;
     cooldowns.set(d.id, clock + p.cooldown);
     message = "Cast " + d.name;
-    if (heal) hero.health = Math.min(stats.health, hero.health + p.power);
+    if (heal) {
+      hero.health = Math.min(stats.health, hero.health + p.power);
+      if (d.modifier === "Lingering") {
+        mendingUntil = clock + p.duration;
+        mendingRate = p.power * 0.1;
+      }
+    }
     if (d.form === "Barrier") {
       shield = p.power;
       shieldUntil = clock + p.duration;
@@ -284,7 +313,18 @@ export function encounters(
       enchantUntil = clock + p.duration;
     }
     for (const e of victims) {
-      strike(e, p.power);
+      strike(
+        e,
+        damage(
+          p.power,
+          e.name === "Ruins Guardian"
+            ? 12
+            : e.name === "Corrupted Wisp" && d.element === "Arcane"
+              ? 20
+              : 0,
+          false,
+        ),
+      );
       if (d.modifier === "Lingering" && e.hp)
         burns.push({
           enemy: e,
@@ -293,7 +333,13 @@ export function encounters(
           amount: Math.ceil(p.power * 0.2),
         });
     }
-    showMagic(scene, d, at, to);
+    const anchor =
+      d.form === "Barrier"
+        ? body
+        : d.form === "Enchantment"
+          ? weapon
+          : undefined;
+    showMagic(scene, d, at, to, anchor, anchor ? p.duration : 0.55);
   }
   const onKey = (e: KeyboardEvent) => {
     if (
@@ -311,7 +357,23 @@ export function encounters(
   window.addEventListener("keydown", onKey);
   scene.onBeforeRenderObservable.add(() => {
     const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
+    if (paused()) return;
     clock += dt;
+    const chosen = enemies[target];
+    marker.setEnabled(!!chosen && chosen.hp > 0);
+    if (chosen)
+      marker.position.set(
+        chosen.mesh.position.x,
+        0.064,
+        chosen.mesh.position.z,
+      );
+    recoil = Math.max(0, recoil - dt);
+    swing = Math.max(0, swing - dt);
+    weapon.rotation.x = Math.sin(swing * 9) * 1.35;
+    if (model) {
+      model.rotation.z = hero.health <= 0 ? 1.4 : Math.sin(recoil * 12) * 0.16;
+      model.position.y = Math.sin(clock * 2) * 0.015;
+    }
     if (!explored && body.position.z > 20) {
       explored = true;
       hero.xp += 15;
@@ -321,11 +383,11 @@ export function encounters(
       if (
         e.windup &&
         clock >= e.windup &&
-        Vector3.Distance(body.position, e.wolf.position) > e.range
+        Vector3.Distance(body.position, e.mesh.position) > e.range
       ) {
         e.windup = 0;
         e.attack = clock + 3;
-        e.wolf.scaling.y = 3;
+        e.mesh.scaling.y = 3;
         message = "Shockwave evaded.";
       }
     }
@@ -344,13 +406,13 @@ export function encounters(
     const stats = gearStats(bag, hero.attributes);
     let threatened = false;
     for (const e of enemies) {
-      const pos = e.wolf.position;
+      const pos = e.mesh.position;
       const distance = Vector3.Distance(body.position, pos);
       if (e.hp <= 0) {
         if (clock >= e.timer) {
           e.hp = e.max;
           pos.copyFrom(e.home);
-          e.wolf.setEnabled(true);
+          e.mesh.setEnabled(true);
           e.phase = "Patrol";
         }
         continue;
@@ -362,7 +424,7 @@ export function encounters(
         e.phase !== "Return" &&
         distance < Math.max(6, e.range + 1) &&
         hero.health > 0 &&
-        sight(e.wolf)
+        sight(e.mesh)
       ) {
         e.phase =
           distance < e.range
@@ -379,15 +441,16 @@ export function encounters(
         e.phase = "Return";
       if (e.phase === "Attack" && clock >= e.attack) {
         if (e.name === "Ruins Guardian" && !e.windup) {
+          cue("boss");
           e.windup = clock + 1.5;
           e.attack = e.windup;
           message = "Guardian raises its fists · leave the shockwave radius!";
-          e.wolf.scaling.y = 3.6;
+          e.mesh.scaling.y = 3.6;
           continue;
         }
         const slam = e.windup > 0;
         e.windup = 0;
-        if (slam) e.wolf.scaling.y = 3;
+        if (slam) e.mesh.scaling.y = 3;
         if (e.name === "Corrupted Wisp")
           showMagic(
             scene,
@@ -408,6 +471,9 @@ export function encounters(
           false,
         );
         const absorbed = clock < shieldUntil ? Math.min(incoming, shield) : 0;
+        cue("hurt");
+        recoil = 0.3;
+        damageNumber(scene, body.position, incoming - absorbed, true);
         shield -= absorbed;
         hero.health = Math.max(0, hero.health - incoming + absorbed);
         e.attack = clock + 1.8;
@@ -425,8 +491,8 @@ export function encounters(
         dir.y = 0;
         if (dir.length() > 0.2) {
           dir.normalize();
-          e.wolf.rotation.y = Math.atan2(dir.x, dir.z);
-          e.wolf.moveWithCollisions(
+          e.mesh.rotation.y = Math.atan2(dir.x, dir.z);
+          e.mesh.moveWithCollisions(
             dir.scale((e.phase === "Patrol" ? 1 : 3.1) * dt),
           );
         }
@@ -434,10 +500,12 @@ export function encounters(
       if (target === e.index && auto && hero.health > 0 && clock >= nextHit) {
         if (distance > (weaponFamily === "Bow" ? 12 : balance.meleeRange))
           message = "Move closer to attack.";
-        else if (!sight(e.wolf)) message = "Line of sight blocked.";
+        else if (!sight(e.mesh)) message = "Line of sight blocked.";
         else if (hero.stamina >= balance.meleeCost) {
           const hit = damage(stats.physical, 4, Math.random() < stats.crit);
 
+          cue("strike");
+          swing = 0.35;
           hero.stamina -= balance.meleeCost;
           nextHit = clock + 1 / stats.attackSpeed;
           message = "Sword strike · " + hit;
@@ -446,6 +514,8 @@ export function encounters(
       }
     }
     if (hero.health > 0) {
+      if (clock < mendingUntil)
+        hero.health = Math.min(stats.health, hero.health + mendingRate * dt);
       hero.stamina = Math.min(stats.stamina, hero.stamina + 5 * dt);
       hero.mana = Math.min(stats.mana, hero.mana + stats.manaRegen * dt);
       if (!threatened)
@@ -492,6 +562,7 @@ export function encounters(
     }
   });
   return {
+    station: () => nearStation(body.position),
     snapshot: (): Save =>
       structuredClone({
         ...initial,
@@ -501,7 +572,10 @@ export function encounters(
         journal,
         gathered,
         explored,
-        location: [body.position.x, body.position.z],
+        location: [
+          Math.max(-39, Math.min(39, body.position.x)),
+          Math.max(-39, Math.min(39, body.position.z)),
+        ],
       }),
     quest: (id: string) => {
       if (

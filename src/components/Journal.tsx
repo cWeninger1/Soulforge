@@ -11,7 +11,7 @@ export function Journal({
   dialog: boolean;
 }) {
   return (
-    <div>
+    <div className="window">
       <h3>{dialog ? hud.station?.name : "Quest journal"}</h3>
       {dialog && hud.station?.id === "merchant" ? (
         <>

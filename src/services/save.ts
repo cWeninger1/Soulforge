@@ -1,10 +1,6 @@
+import { defaultSettings } from "../game/audio";
 import { z } from "zod";
-import {
-  attributeNames,
-  availablePoints,
-  initialAttributes,
-  newHero,
-} from "../systems/character";
+import { attributeNames, availablePoints, newHero } from "../systems/character";
 import { items, slots } from "../data/items";
 import {
   freshInventory,
@@ -72,6 +68,15 @@ const schema = z.object({
   location: z.tuple([z.number().min(-39).max(39), z.number().min(-39).max(39)]),
   gathered: z.boolean(),
   explored: z.boolean(),
+  settings: z
+    .object({
+      master: z.number().min(0).max(1),
+      music: z.number().min(0).max(1),
+      effects: z.number().min(0).max(1),
+      quality: z.enum(["High", "Low"]),
+      sensitivity: z.number().min(0.4).max(2),
+    })
+    .default(defaultSettings),
 });
 export type Save = Omit<z.infer<typeof schema>, "book"> & {
   book: ReturnType<typeof freshBook>;
@@ -96,6 +101,7 @@ export function freshSave(
     location: [0, -26],
     gathered: false,
     explored: false,
+    settings: { ...defaultSettings },
   };
 }
 export function parseSave(raw: unknown): Save {
@@ -142,4 +148,3 @@ export function parseSave(raw: unknown): Save {
     hero[key] = Math.min(hero[key], stats[key]);
   return s;
 }
-export const creationAttributes = initialAttributes;
